@@ -6,7 +6,49 @@ import type { ChatMessage, ItineraryPayload } from "../types";
 import { extractUrls, isCheckoutUrl, shortUrl } from "../utils/links";
 import { openExternal } from "../utils/zalo";
 
-const FOLLOWUPS = ["Xem lựa chọn khác", "Rẻ hơn nữa được không?", "Đổi sang ngày khác", "Cần visa không?"];
+interface Followup {
+  label: string;
+  msg: string;
+}
+
+// Foreign-travel hints: the visa chip only appears when the conversation looks
+// international — for "đi Tây Ninh" it was pure noise. Only unambiguous phrases:
+// short words like "hàn"/"mỹ"/"úc" match inside Vietnamese words ("nhà hàng"!),
+// so they appear only anchored ("đi hàn", "hàn quốc").
+const FOREIGN_HINTS =
+  /visa|hộ chiếu|passport|nước ngoài|quốc tế|nhật bản|hàn quốc|thái lan|bangkok|singapore|trung quốc|đài loan|tokyo|seoul|osaka|bali|malaysia|dubai|châu âu|paris|london|new york|hoa kỳ|đi nhật|đi hàn|đi mỹ|đi úc|đi thái|đi sing|đi trung/i;
+const PRICE_HINTS = /vé máy bay|khách sạn|triệu|vnd|₫|giá vé|giá phòng|khứ hồi/i;
+const DATE_HINTS = /ngày \d|\d{1,2}\/\d{1,2}|check-?in|khởi hành/i;
+
+/** Context-aware follow-up chips for the latest assistant reply. The itinerary
+ * chip leads because it saves the most typing ("muốn mình lên lịch trình
+ * không?" → one tap instead of composing a sentence). */
+function buildFollowups(msgs: ChatMessage[]): Followup[] {
+  const last = msgs[msgs.length - 1];
+  if (!last || last.role !== "assistant" || last.pending) return [];
+  const lastUser = [...msgs].reverse().find((m) => m.role === "user")?.text ?? "";
+  const ctx = `${lastUser}\n${last.text ?? ""}`;
+
+  const out: Followup[] = [];
+  // Already built an itinerary in this bubble -> the map button covers it.
+  if (!last.itinerary) {
+    out.push({
+      label: "🗺️ Lên lịch trình chi tiết",
+      msg: "Lên lịch trình chi tiết cho chuyến này giúp mình nhé.",
+    });
+  }
+  if (PRICE_HINTS.test(ctx)) {
+    out.push({ label: "Xem lựa chọn khác", msg: "Xem lựa chọn khác" });
+    out.push({ label: "Rẻ hơn nữa được không?", msg: "Rẻ hơn nữa được không?" });
+  }
+  if (DATE_HINTS.test(ctx)) {
+    out.push({ label: "Đổi sang ngày khác", msg: "Đổi sang ngày khác" });
+  }
+  if (FOREIGN_HINTS.test(ctx)) {
+    out.push({ label: "Cần visa không?", msg: "Cần visa không?" });
+  }
+  return out.slice(0, 4);
+}
 
 export function ChatPage() {
   const { messages, send, sending, clearChat, showItinerary } = useApp();
@@ -57,9 +99,9 @@ export function ChatPage() {
 
         {!empty && !sending && lastIsAssistant(messages) && (
           <div className="followups">
-            {FOLLOWUPS.map((f) => (
-              <button key={f} className="chip chip--soft" onClick={() => void send(f)}>
-                {f}
+            {buildFollowups(messages).map((f) => (
+              <button key={f.label} className="chip chip--soft" onClick={() => void send(f.msg)}>
+                {f.label}
               </button>
             ))}
           </div>
@@ -121,7 +163,7 @@ function Bubble({
           <>
             {m.text && (
               <div className="bubble__text">
-                <Linkified text={m.text} />
+                <Linkified text={mdLite(m.text)} />
               </div>
             )}
             {checkout && (
@@ -152,7 +194,36 @@ function Bubble({
   );
 }
 
-/** Render text with any http(s) URLs turned into tappable links. */
+/** Light markdown cleanup for chat bubbles: turn "### Heading" lines into bold
+ * lines and drop bare "---" rulers — the model emits both and they rendered as
+ * raw symbols. Everything else passes through untouched. */
+function mdLite(text: string): string {
+  return text
+    .split("\n")
+    .filter((l) => !/^\s*-{3,}\s*$/.test(l))
+    .map((l) => l.replace(/^\s*#{1,4}\s+(.+)$/, "**$1**"))
+    .join("\n");
+}
+
+/** Render `**bold**` markdown the model emits as real bold text — before this,
+ * bubbles showed raw asterisks ("**Vé máy bay:**"). Unpaired ** is left as-is. */
+function Bolded({ text, keyBase }: { text: string; keyBase: number }) {
+  const parts = text.split("**");
+  if (parts.length < 3) return <Fragment key={keyBase}>{text}</Fragment>;
+  const nodes: ReactNode[] = [];
+  parts.forEach((p, i) => {
+    // Odd indexes sit between a ** pair -> bold. A trailing unpaired segment
+    // (even count of "**") stays plain because split gives it an even index.
+    if (i % 2 === 1 && i < parts.length - (parts.length % 2 === 0 ? 1 : 0)) {
+      nodes.push(<strong key={`${keyBase}-${i}`}>{p}</strong>);
+    } else {
+      nodes.push(<Fragment key={`${keyBase}-${i}`}>{p}</Fragment>);
+    }
+  });
+  return <>{nodes}</>;
+}
+
+/** Render text with http(s) URLs as tappable links and **bold** as bold. */
 function Linkified({ text }: { text: string }) {
   const re = /\bhttps?:\/\/[^\s<>()]+/gi;
   const nodes: ReactNode[] = [];
@@ -162,7 +233,7 @@ function Linkified({ text }: { text: string }) {
     const raw = match[0];
     const url = raw.replace(/[.,;:!?)\]]+$/, "");
     const start = match.index ?? 0;
-    if (start > lastIndex) nodes.push(<Fragment key={key++}>{text.slice(lastIndex, start)}</Fragment>);
+    if (start > lastIndex) nodes.push(<Bolded key={key} keyBase={key++} text={text.slice(lastIndex, start)} />);
     nodes.push(
       <a
         key={key++}
@@ -177,7 +248,7 @@ function Linkified({ text }: { text: string }) {
     );
     lastIndex = start + url.length;
   }
-  if (lastIndex < text.length) nodes.push(<Fragment key={key++}>{text.slice(lastIndex)}</Fragment>);
+  if (lastIndex < text.length) nodes.push(<Bolded key={key} keyBase={key++} text={text.slice(lastIndex)} />);
   return <>{nodes}</>;
 }
 
