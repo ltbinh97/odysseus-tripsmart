@@ -8,17 +8,21 @@ import { ItineraryMap } from "../components/ItineraryMap";
 export function ItineraryPage() {
   const {
     itineraryDest,
-    setItineraryDest,
     activeItinerary,
+    showingGenerated,
+    viewGenerated,
+    viewCurated,
     generating,
-    clearGenerated,
     saveItinerary,
     isItinerarySaved,
   } = useApp();
 
   const dest = useMemo(
-    () => activeItinerary ?? findItinerary(itineraryDest) ?? ITINERARIES[0],
-    [activeItinerary, itineraryDest],
+    () =>
+      showingGenerated && activeItinerary
+        ? activeItinerary
+        : findItinerary(itineraryDest) ?? ITINERARIES[0],
+    [showingGenerated, activeItinerary, itineraryDest],
   );
   const [dayIndex, setDayIndex] = useState(0);
   const day = dest.days[Math.min(dayIndex, dest.days.length - 1)];
@@ -114,15 +118,20 @@ export function ItineraryPage() {
         </div>
 
         <div className="itin-dest-switch">
-          {dest.generated && <button className="chip is-active">✨ {dest.name.split(",")[0]}</button>}
+          {activeItinerary && (
+            <button
+              className={`chip ${showingGenerated ? "is-active" : ""}`}
+              onClick={viewGenerated}
+            >
+              {activeItinerary.generated ? "✨ " : ""}
+              {activeItinerary.name.split(",")[0]}
+            </button>
+          )}
           {ITINERARIES.map((it) => (
             <button
               key={it.id}
-              className={`chip ${!dest.generated && it.id === dest.id ? "is-active" : ""}`}
-              onClick={() => {
-                clearGenerated();
-                setItineraryDest(it.id);
-              }}
+              className={`chip ${!showingGenerated && it.id === dest.id ? "is-active" : ""}`}
+              onClick={() => viewCurated(it.id)}
             >
               {it.name.split(",")[0]}
             </button>

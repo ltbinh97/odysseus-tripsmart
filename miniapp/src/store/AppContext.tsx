@@ -52,6 +52,13 @@ interface AppState {
   /** render an itinerary the agent already built (generate_itinerary tool) */
   showItinerary: (payload: ItineraryPayload) => void;
   clearGenerated: () => void;
+  /** true when the itinerary tab is showing the AI-built (activeItinerary) one
+   *  rather than a curated destination. Switching between them keeps both. */
+  showingGenerated: boolean;
+  /** view the AI-built itinerary (does not discard it) */
+  viewGenerated: () => void;
+  /** view a curated destination without discarding the AI-built itinerary */
+  viewCurated: (dest: string) => void;
 
   // ---- Saved itineraries (tracked in the Trips tab) ----
   savedItineraries: DestinationItinerary[];
@@ -93,6 +100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sending, setSending] = useState(false);
   const [itineraryDest, setItineraryDest] = useState<string>("tokyo");
   const [activeItinerary, setActiveItinerary] = useState<DestinationItinerary | null>(null);
+  const [showingGenerated, setShowingGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [savedItineraries, setSavedItineraries] = useState<DestinationItinerary[]>(() => loadSaved());
@@ -188,14 +196,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openItinerary = useCallback((dest: string) => {
-    setActiveItinerary(null);
+    // View a curated destination. Keep any AI-built itinerary so the user can
+    // switch back to it via its chip.
     setGenError(null);
+    setShowingGenerated(false);
     setItineraryDest(dest);
     setTab("itinerary");
   }, []);
 
+  // Toggle between the AI-built itinerary and curated ones WITHOUT discarding
+  // the AI-built one (the reported bug: switching to Tokyo lost the generated trip).
+  const viewGenerated = useCallback(() => setShowingGenerated(true), []);
+  const viewCurated = useCallback((dest: string) => {
+    setShowingGenerated(false);
+    setItineraryDest(dest);
+  }, []);
+
   const clearGenerated = useCallback(() => {
     setActiveItinerary(null);
+    setShowingGenerated(false);
     setGenError(null);
   }, []);
 
@@ -215,6 +234,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGenError(null);
     setGenerating(false);
     setActiveItinerary(it);
+    setShowingGenerated(true);
     setTab("itinerary");
   }, []);
 
@@ -249,6 +269,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!it) return;
       setGenError(null);
       setActiveItinerary(it);
+      setShowingGenerated(true);
       setTab("itinerary");
     },
     [savedItineraries],
@@ -288,6 +309,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orsReady: orsEnabled,
     showItinerary,
     clearGenerated,
+    showingGenerated,
+    viewGenerated,
+    viewCurated,
     savedItineraries,
     saveItinerary,
     removeItinerary,
