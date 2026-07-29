@@ -38,19 +38,25 @@ DEMO_DEPART = "2026-08-28"
 DEMO_RETURN = "2026-08-31"
 GUESTS = 2  # cache khách sạn key theo số khách — khớp câu demo "2 người"
 
+# Demo thuần Việt Nam — các điểm nội địa nổi bật (khớp luôn các fix VN coverage:
+# sân bay UIH/CXR/DLI, domestic không hỏi visa).
 PLACES: list[tuple[str, int]] = [  # (điểm đến, số ngày) — key theo days!
     ("Phú Quốc", 3), ("Phú Quốc", 5),
     ("Đà Nẵng", 2), ("Đà Nẵng", 3),
-    ("Bangkok", 3),
+    ("Nha Trang", 3),
+    ("Đà Lạt", 3),
+    ("Ninh Bình", 2),
     ("Tây Ninh", 2),
 ]
 FLIGHTS: list[tuple[str, str]] = [
     ("TP.HCM", "Phú Quốc"),
     ("TP.HCM", "Đà Nẵng"),
     ("Hà Nội", "Đà Nẵng"),
-    ("TP.HCM", "Bangkok"),
+    ("TP.HCM", "Nha Trang"),
+    ("Hà Nội", "Phú Quốc"),
+    ("TP.HCM", "Đà Lạt"),
 ]
-HOTELS: list[str] = ["Phú Quốc", "Đà Nẵng", "Bangkok"]
+HOTELS: list[str] = ["Phú Quốc", "Đà Nẵng", "Nha Trang", "Đà Lạt"]
 # ---------------------------------------------------------------------------
 
 DRY = "--dry-run" in sys.argv

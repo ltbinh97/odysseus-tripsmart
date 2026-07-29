@@ -65,19 +65,20 @@ export const VIBES: Vibe[] = [
 // Featured destinations. These are just inspiration tiles on the frontend — all
 // real facts (price, visa) come from the backend when the user plans a trip.
 export const DESTINATIONS: Destination[] = [
-  { id: "bangkok", name: "Bangkok", country: "Thái Lan", emoji: "🛕", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", tagline: "Đền chùa, street food, chợ đêm" },
-  { id: "tokyo", name: "Tokyo", country: "Nhật Bản", emoji: "🗼", gradient: "linear-gradient(135deg,#ee9ca7,#ffdde1)", tagline: "Hiện đại gặp truyền thống" },
-  { id: "seoul", name: "Seoul", country: "Hàn Quốc", emoji: "🏙️", gradient: "linear-gradient(135deg,#4b6cb7,#182848)", tagline: "K-culture, mua sắm, cà phê" },
-  { id: "singapore", name: "Singapore", country: "Singapore", emoji: "🌆", gradient: "linear-gradient(135deg,#f857a6,#ff5858)", tagline: "Sạch, an toàn, đa văn hoá" },
-  { id: "bali", name: "Bali", country: "Indonesia", emoji: "🌊", gradient: "linear-gradient(135deg,#11998e,#38ef7d)", tagline: "Biển, resort, tâm linh" },
+  // Việt Nam trước — demo tập trung điểm đến trong nước.
+  { id: "phuquoc", name: "Phú Quốc", country: "Việt Nam", emoji: "🏖️", gradient: "linear-gradient(135deg,#00b4db,#0083b0)", tagline: "Đảo ngọc, biển xanh", domestic: true },
   { id: "danang", name: "Đà Nẵng", country: "Việt Nam", emoji: "🌉", gradient: "linear-gradient(135deg,#2193b0,#6dd5ed)", tagline: "Biển đẹp, Bà Nà, cầu Vàng", domestic: true },
   { id: "dalat", name: "Đà Lạt", country: "Việt Nam", emoji: "🌲", gradient: "linear-gradient(135deg,#5a3f37,#2c7744)", tagline: "Se lạnh, săn mây, cà phê", domestic: true },
-  { id: "phuquoc", name: "Phú Quốc", country: "Việt Nam", emoji: "🏖️", gradient: "linear-gradient(135deg,#00b4db,#0083b0)", tagline: "Đảo ngọc, biển xanh", domestic: true },
+  { id: "nhatrang", name: "Nha Trang", country: "Việt Nam", emoji: "🐚", gradient: "linear-gradient(135deg,#36d1dc,#5b86e5)", tagline: "Vịnh biển, hải sản, lặn ngắm san hô", domestic: true },
+  { id: "ninhbinh", name: "Ninh Bình", country: "Việt Nam", emoji: "⛰️", gradient: "linear-gradient(135deg,#134e5e,#71b280)", tagline: "Tràng An, Tam Cốc, non nước", domestic: true },
+  { id: "haigiang", name: "Hà Giang", country: "Việt Nam", emoji: "🏔️", gradient: "linear-gradient(135deg,#485563,#29323c)", tagline: "Đèo Mã Pí Lèng, cao nguyên đá", domestic: true },
+  { id: "bangkok", name: "Bangkok", country: "Thái Lan", emoji: "🛕", gradient: "linear-gradient(135deg,#f7971e,#ffd200)", tagline: "Đền chùa, street food, chợ đêm" },
+  { id: "tokyo", name: "Tokyo", country: "Nhật Bản", emoji: "🗼", gradient: "linear-gradient(135deg,#ee9ca7,#ffdde1)", tagline: "Hiện đại gặp truyền thống" },
 ];
 
 export const QUICK_PROMPTS: string[] = [
-  "Gợi ý điểm đến cuối tháng 8, ngân sách 8 triệu",
-  "Đi Nhật mùa lá đỏ cần chuẩn bị gì?",
+  "Gợi ý điểm đến trong nước cuối tháng 8, ngân sách 8 triệu",
+  "Đi Phú Quốc 5 ngày từ TP.HCM cho 2 người",
   "Đi Đà Lạt 3 ngày 2 đêm với gia đình",
-  "Visa đi Hàn Quốc cho hộ chiếu Việt Nam?",
+  "Lên lịch trình 3 ngày khám phá Đà Nẵng",
 ];

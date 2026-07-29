@@ -254,9 +254,9 @@ function Linkified({ text }: { text: string }) {
 
 function EmptyState({ onPick }: { onPick: (t: string) => void }) {
   const starters = [
-    "Đi Bangkok cuối tháng 8, 2 người, 8 triệu",
+    "Đi Phú Quốc cuối tháng 8, 2 người, 8 triệu",
     "Gợi ý điểm đến biển trong nước dịp lễ",
-    "Đi Nhật tự túc cần chuẩn bị gì?",
+    "Lên lịch trình 3 ngày khám phá Đà Nẵng",
   ];
   return (
     <div className="empty">

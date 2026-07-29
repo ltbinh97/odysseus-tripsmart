@@ -65,7 +65,7 @@ export function ComposerSheet({ open, vibe, destination, onClose, onSubmit }: Pr
           <span className="field__label">Điểm đến {vibe && !dest ? "(để trống để AI gợi ý)" : ""}</span>
           <input
             className="field__input"
-            placeholder="VD: Bangkok, Đà Nẵng, Tokyo…"
+            placeholder="VD: Phú Quốc, Đà Nẵng, Đà Lạt…"
             value={dest}
             onChange={(e) => setDest(e.target.value)}
           />

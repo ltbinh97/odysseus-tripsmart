@@ -98,7 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>("discover");
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory());
   const [sending, setSending] = useState(false);
-  const [itineraryDest, setItineraryDest] = useState<string>("tokyo");
+  const [itineraryDest, setItineraryDest] = useState<string>("danang");
   const [activeItinerary, setActiveItinerary] = useState<DestinationItinerary | null>(null);
   const [showingGenerated, setShowingGenerated] = useState(false);
   const [generating, setGenerating] = useState(false);

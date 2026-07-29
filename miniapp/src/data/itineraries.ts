@@ -135,6 +135,11 @@ export const ITINERARIES: DestinationItinerary[] = [
   },
 ];
 
+// Demo tập trung Việt Nam: Đà Nẵng đứng đầu — vừa là chip đầu tiên trong tab
+// Lịch trình, vừa là fallback mặc định (ITINERARIES[0]).
+const _VN_FIRST = ["danang", "tokyo", "bangkok"];
+ITINERARIES.sort((a, b) => _VN_FIRST.indexOf(a.id) - _VN_FIRST.indexOf(b.id));
+
 export function findItinerary(idOrName: string): DestinationItinerary | undefined {
   const q = idOrName.toLowerCase();
   return ITINERARIES.find(
