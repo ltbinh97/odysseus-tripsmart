@@ -20,10 +20,11 @@ from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from . import config
 from .agent import TripSmartAgent
+from .legal import PRIVACY_HTML, TERMS_HTML
 
 agent = TripSmartAgent()
 
@@ -239,6 +240,18 @@ async def suggestions(limit: int = config.SUGGESTIONS_LIMIT) -> dict:
     limit = max(1, min(20, int(limit or config.SUGGESTIONS_LIMIT)))
     items = await asyncio.to_thread(agent.memory.top_place_suggestions, limit)
     return {"suggestions": items, "cache": agent.memory.cache_stats()}
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms() -> str:
+    """Điều khoản sử dụng — URL để khai trong console Zalo Mini App."""
+    return TERMS_HTML
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy() -> str:
+    """Chính sách bảo mật — URL để khai trong console Zalo Mini App."""
+    return PRIVACY_HTML
 
 
 @app.get("/health")
