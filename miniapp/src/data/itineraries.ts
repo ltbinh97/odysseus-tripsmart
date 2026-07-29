@@ -48,60 +48,62 @@ const G = {
 
 export const ITINERARIES: DestinationItinerary[] = [
   {
-    id: "tokyo",
-    name: "Tokyo, Nhật Bản",
-    center: { lat: 35.6812, lng: 139.7671 },
+    // Toạ độ + rating lấy từ dữ liệu Google Maps thật (backend /places).
+    id: "phuquoc",
+    name: "Phú Quốc, Việt Nam",
+    center: { lat: 10.2172, lng: 103.9564 },
     days: [
       {
         day: 1,
-        hoursLabel: "~12 giờ",
+        hoursLabel: "~11 giờ",
         stops: [
-          { id: "sensoji", name: "Chùa Senso-ji", category: "Văn hoá", emoji: "⛩️", gradient: G.culture, rating: 4.5, time: "9:00", lat: 35.7148, lng: 139.7967 },
-          { id: "nakamise", name: "Phố mua sắm Nakamise-dori", category: "Mua sắm", emoji: "🏮", gradient: G.shopping, rating: 4.3, time: "11:00", lat: 35.7112, lng: 139.7966 },
-          { id: "daikokuya", name: "Daikokuya Tempura", category: "Ẩm thực", emoji: "🍤", gradient: G.food, rating: 3.8, price: "$$$", time: "12:30", lat: 35.7141, lng: 139.7957 },
-          { id: "uenopark", name: "Công viên Ueno", category: "Ngoài trời", emoji: "🌳", gradient: G.outdoor, rating: 4.4, time: "14:30", lat: 35.7156, lng: 139.7745 },
-          { id: "ameyoko", name: "Chợ Ameyoko", category: "Mua sắm", emoji: "🛍️", gradient: G.shopping, rating: 4.2, time: "16:30", lat: 35.708, lng: 139.7745 },
-          { id: "skytree", name: "Tokyo Skytree", category: "Biểu tượng", emoji: "🗼", gradient: G.landmark, rating: 4.5, time: "18:30", lat: 35.7101, lng: 139.8107 },
+          { id: "vinwonders", name: "VinWonders Phú Quốc", category: "Vui chơi", emoji: "🎢", gradient: G.landmark, rating: 4.8, time: "9:00", lat: 10.3407, lng: 103.854 },
+          { id: "safari", name: "Vinpearl Safari Phú Quốc", category: "Vui chơi", emoji: "🦒", gradient: G.outdoor, rating: 4.6, time: "13:00", lat: 10.337, lng: 103.8914 },
+          { id: "grandworld", name: "Grand World Phú Quốc", category: "Biểu tượng", emoji: "🎡", gradient: G.night, rating: 4.5, time: "16:00", lat: 10.3285, lng: 103.863 },
+          { id: "dinhcau", name: "Dinh Cậu", category: "Văn hoá", emoji: "🛕", gradient: G.culture, rating: 4.5, time: "17:45", lat: 10.2172, lng: 103.9564 },
+          { id: "chodempq", name: "Chợ đêm Phú Quốc", category: "Mua sắm", emoji: "🦑", gradient: G.shopping, rating: 4.0, time: "19:00", lat: 10.216, lng: 103.9604 },
         ],
       },
       {
         day: 2,
         hoursLabel: "~10 giờ",
         stops: [
-          { id: "meiji", name: "Đền Meiji", category: "Văn hoá", emoji: "⛩️", gradient: G.culture, rating: 4.6, time: "9:00", lat: 35.6764, lng: 139.6993 },
-          { id: "takeshita", name: "Phố Takeshita (Harajuku)", category: "Mua sắm", emoji: "🧢", gradient: G.shopping, rating: 4.1, time: "11:00", lat: 35.6716, lng: 139.7031 },
-          { id: "shibuya", name: "Ngã tư Shibuya", category: "Biểu tượng", emoji: "🚦", gradient: G.landmark, rating: 4.5, time: "13:00", lat: 35.6595, lng: 139.7005 },
-          { id: "ichiran", name: "Ichiran Ramen Shibuya", category: "Ẩm thực", emoji: "🍜", gradient: G.food, rating: 4.4, price: "$$", time: "13:30", lat: 35.6612, lng: 139.701 },
-          { id: "teamlab", name: "teamLab Planets", category: "Bảo tàng", emoji: "🎨", gradient: G.museum, rating: 4.6, time: "16:00", lat: 35.6494, lng: 139.7899 },
+          { id: "suoitranh", name: "Khu du lịch Suối Tranh", category: "Ngoài trời", emoji: "💦", gradient: G.outdoor, rating: 4.3, time: "8:30", lat: 10.1767, lng: 104.0125 },
+          { id: "sori", name: "SORI Restaurant Phú Quốc", category: "Ẩm thực", emoji: "🍜", gradient: G.food, rating: 4.7, price: "$$", time: "12:00", lat: 10.1994, lng: 103.9643 },
+          { id: "captreo", name: "Cáp treo Hòn Thơm", category: "Vui chơi", emoji: "🚠", gradient: G.beach, rating: 4.5, time: "14:00", lat: 10.027, lng: 104.0072 },
+          { id: "sunsettown", name: "Thị trấn Hoàng Hôn (Sunset Town)", category: "Biểu tượng", emoji: "🌇", gradient: G.landmark, rating: 4.6, time: "17:00", lat: 10.0269, lng: 104.0079 },
+          { id: "cauhon", name: "Cầu Hôn Phú Quốc", category: "Biểu tượng", emoji: "🌉", gradient: G.night, rating: 4.6, time: "18:30", lat: 10.028, lng: 104.0038 },
         ],
       },
     ],
   },
   {
-    id: "bangkok",
-    name: "Bangkok, Thái Lan",
-    center: { lat: 13.7563, lng: 100.5018 },
+    // Toạ độ + rating lấy từ dữ liệu Google Maps thật (backend /places).
+    id: "dalat",
+    name: "Đà Lạt, Việt Nam",
+    center: { lat: 11.9404, lng: 108.438 },
     days: [
       {
         day: 1,
-        hoursLabel: "~11 giờ",
+        hoursLabel: "~10 giờ",
         stops: [
-          { id: "grandpalace", name: "Cung điện Hoàng gia", category: "Văn hoá", emoji: "🏯", gradient: G.culture, rating: 4.6, time: "9:00", lat: 13.75, lng: 100.4914 },
-          { id: "watpho", name: "Wat Pho", category: "Văn hoá", emoji: "🛕", gradient: G.culture, rating: 4.7, time: "11:00", lat: 13.7465, lng: 100.4927 },
-          { id: "watarun", name: "Wat Arun", category: "Văn hoá", emoji: "⛩️", gradient: G.culture, rating: 4.6, time: "13:00", lat: 13.7437, lng: 100.4889 },
-          { id: "thamaharaj", name: "Tha Maharaj (ăn trưa)", category: "Ẩm thực", emoji: "🍽️", gradient: G.food, rating: 4.2, price: "$$", time: "14:30", lat: 13.757, lng: 100.491 },
-          { id: "khaosan", name: "Phố Khao San", category: "Về đêm", emoji: "🌃", gradient: G.night, rating: 4.0, time: "18:00", lat: 13.759, lng: 100.4977 },
+          { id: "lamvien", name: "Quảng trường Lâm Viên", category: "Biểu tượng", emoji: "🌻", gradient: G.landmark, rating: 4.5, time: "8:30", lat: 11.9394, lng: 108.4452 },
+          { id: "vuonhoa", name: "Vườn hoa thành phố Đà Lạt", category: "Ngoài trời", emoji: "🌷", gradient: G.outdoor, rating: 4.2, time: "10:00", lat: 11.9502, lng: 108.4498 },
+          { id: "chodalat", name: "Chợ Đà Lạt", category: "Mua sắm", emoji: "🧺", gradient: G.shopping, rating: 4.5, time: "11:30", lat: 11.943, lng: 108.4369 },
+          { id: "dalatpho", name: "Tiệm ăn Đà Lạt Phố", category: "Ẩm thực", emoji: "🍲", gradient: G.food, rating: 4.7, price: "$$", time: "12:30", lat: 11.9443, lng: 108.4349 },
+          { id: "dinhbaodai", name: "Dinh Bảo Đại III", category: "Văn hoá", emoji: "🏛️", gradient: G.culture, rating: 4.2, time: "14:30", lat: 11.93, lng: 108.4296 },
+          { id: "linhson", name: "Chùa Linh Sơn", category: "Văn hoá", emoji: "🛕", gradient: G.culture, rating: 4.5, time: "16:30", lat: 11.9502, lng: 108.437 },
         ],
       },
       {
         day: 2,
-        hoursLabel: "~12 giờ",
+        hoursLabel: "~10 giờ",
         stops: [
-          { id: "chatuchak", name: "Chợ cuối tuần Chatuchak", category: "Mua sắm", emoji: "🛍️", gradient: G.shopping, rating: 4.4, time: "9:30", lat: 13.7999, lng: 100.5503 },
-          { id: "jimthompson", name: "Nhà Jim Thompson", category: "Văn hoá", emoji: "🏡", gradient: G.culture, rating: 4.4, time: "12:30", lat: 13.7492, lng: 100.5286 },
-          { id: "mbk", name: "Trung tâm MBK", category: "Mua sắm", emoji: "🏬", gradient: G.shopping, rating: 4.2, time: "14:00", lat: 13.7447, lng: 100.5299 },
-          { id: "yaowarat", name: "Chinatown Yaowarat", category: "Ẩm thực", emoji: "🍢", gradient: G.food, rating: 4.5, price: "$", time: "18:30", lat: 13.7405, lng: 100.509 },
-          { id: "asiatique", name: "Asiatique The Riverfront", category: "Về đêm", emoji: "🎡", gradient: G.night, rating: 4.3, time: "20:00", lat: 13.7045, lng: 100.51 },
+          { id: "thunglung", name: "Thung lũng Tình Yêu", category: "Ngoài trời", emoji: "💐", gradient: G.outdoor, rating: 4.4, time: "8:30", lat: 11.9788, lng: 108.4483 },
+          { id: "langbiang", name: "Khu du lịch Lang Biang", category: "Ngoài trời", emoji: "⛰️", gradient: G.outdoor, rating: 4.1, time: "10:30", lat: 12.0193, lng: 108.4244 },
+          { id: "chefsdalat", name: "Chef's Dalat", category: "Ẩm thực", emoji: "🍽️", gradient: G.food, rating: 4.7, price: "$$", time: "13:00", lat: 11.9477, lng: 108.4321 },
+          { id: "datanla", name: "Thác Datanla", category: "Vui chơi", emoji: "💦", gradient: G.beach, rating: 4.4, time: "15:00", lat: 11.9034, lng: 108.4497 },
+          { id: "duonghamdieukhac", name: "Đường Hầm Điêu Khắc", category: "Biểu tượng", emoji: "🗿", gradient: G.museum, rating: 4.2, time: "17:00", lat: 11.8825, lng: 108.4116 },
         ],
       },
     ],
@@ -135,9 +137,8 @@ export const ITINERARIES: DestinationItinerary[] = [
   },
 ];
 
-// Demo tập trung Việt Nam: Đà Nẵng đứng đầu — vừa là chip đầu tiên trong tab
-// Lịch trình, vừa là fallback mặc định (ITINERARIES[0]).
-const _VN_FIRST = ["danang", "tokyo", "bangkok"];
+// Thứ tự chip trong tab Lịch trình; phần tử đầu là fallback mặc định.
+const _VN_FIRST = ["danang", "phuquoc", "dalat"];
 ITINERARIES.sort((a, b) => _VN_FIRST.indexOf(a.id) - _VN_FIRST.indexOf(b.id));
 
 export function findItinerary(idOrName: string): DestinationItinerary | undefined {

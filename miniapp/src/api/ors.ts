@@ -169,6 +169,10 @@ async function routeLeg(
           [a.lng, a.lat],
           [b.lng, b.lat],
         ],
+        // POIs like beaches/mountains sit >350m from the nearest road, which
+        // makes ORS reject the leg (error 2010) and forced a straight-line
+        // fallback. -1 = unlimited snap radius: always route via real roads.
+        radiuses: [-1, -1],
       }),
       signal,
     });

@@ -845,6 +845,35 @@ def _fetch_places_live(dest: str, days: int) -> dict:
     }
 
 
+def _drop_far_places(payload: dict, max_km: float = 120.0) -> dict:
+    """Remove POIs implausibly far from the itinerary center.
+
+    Google sometimes returns a same-named venue on another continent (a
+    'Da-Lat Restaurant' in Massachusetts appeared in a Đà Lạt lookup), which
+    would wreck the map. Applied at serve time so even stale cached payloads
+    are cleaned without a refetch."""
+    import math
+
+    center = payload.get("center") or {}
+    lat0, lng0 = center.get("lat"), center.get("lng")
+    if lat0 is None or lng0 is None:
+        return payload
+
+    def km(p: dict) -> float:
+        la, lo = math.radians(p["lat"] - lat0), math.radians(p["lng"] - lng0)
+        h = (math.sin(la / 2) ** 2
+             + math.cos(math.radians(lat0)) * math.cos(math.radians(p["lat"])) * math.sin(lo / 2) ** 2)
+        return 2 * 6371 * math.asin(min(1.0, math.sqrt(h)))
+
+    places = payload.get("places") or []
+    kept = [p for p in places if km(p) <= max_km]
+    if len(kept) != len(places):
+        dropped = [p["name"] for p in places if p not in kept]
+        print(f"[fetch_places] dropped far-away results: {dropped}")
+        return {**payload, "places": kept}
+    return payload
+
+
 def fetch_places(destination: str, days: int = 2, memory: Any = None) -> dict:
     """Real POIs (attractions + restaurants) for a destination, with ratings and
     coordinates, straight from Google Maps. Raises on failure / no key.
@@ -858,7 +887,7 @@ def fetch_places(destination: str, days: int = 2, memory: Any = None) -> dict:
     days = max(1, min(5, int(days or 2)))
 
     if memory is None:
-        return _fetch_places_live(dest, days)
+        return _drop_far_places(_fetch_places_live(dest, days))
 
     # "v2" invalidates entries cached by the old single-phrasing fetch, which
     # could store restaurant-only results (e.g. Phú Quốc) for PLACES_TTL_HOURS.
@@ -877,7 +906,7 @@ def fetch_places(destination: str, days: int = 2, memory: Any = None) -> dict:
         memory.record_place_search(dest, sample)
     except Exception as exc:  # noqa: BLE001 - suggestions must never break the lookup
         print(f"[fetch_places record] {exc!r}")
-    return {**payload, "cache": meta}
+    return {**_drop_far_places(payload), "cache": meta}
 
 
 # ---------------------------------------------------------------------------
