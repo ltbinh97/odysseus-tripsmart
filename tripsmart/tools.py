@@ -139,15 +139,81 @@ DOMESTIC_CITIES: set[str] = {
     "ninh binh", "ninh bình", "hai phong", "hải phòng",
 }
 
+# Every Vietnamese province plus famous destinations, stored ONCE with accents —
+# matching is accent-insensitive via _strip_accents, so "Tây Ninh", "tay ninh",
+# "Mã Pí Lèng"… all resolve as domestic. Before this, most provinces fell
+# through to "not in dataset → web_search / embassy", which is nonsense for a
+# Vietnamese traveller going to Tây Ninh.
+DOMESTIC_PLACES: set[str] = {
+    # 63 tỉnh/thành
+    "an giang", "bà rịa - vũng tàu", "bà rịa vũng tàu", "bà rịa", "bạc liêu", "bắc giang",
+    "bắc kạn", "bắc ninh", "bến tre", "bình dương", "bình định", "bình phước", "bình thuận",
+    "cà mau", "cao bằng", "đắk lắk", "đắk nông", "điện biên", "đồng nai", "đồng tháp",
+    "gia lai", "hà giang", "hà nam", "hà tĩnh", "hải dương", "hậu giang", "hòa bình",
+    "hưng yên", "khánh hòa", "kiên giang", "kon tum", "lai châu", "lâm đồng", "lạng sơn",
+    "lào cai", "long an", "nam định", "nghệ an", "ninh thuận", "phú thọ", "phú yên",
+    "quảng bình", "quảng nam", "quảng ngãi", "quảng ninh", "quảng trị", "sóc trăng",
+    "sơn la", "tây ninh", "thái bình", "thái nguyên", "thanh hóa", "thừa thiên huế",
+    "tiền giang", "trà vinh", "tuyên quang", "vĩnh long", "vĩnh phúc", "yên bái",
+    # Địa danh nổi tiếng
+    "cát bà", "đồ sơn", "cô tô", "yên tử", "vân đồn", "fansipan", "bắc hà", "y tý",
+    "đồng văn", "mã pí lèng", "mèo vạc", "thác bản giốc", "tràng an", "tam cốc",
+    "bái đính", "mộc châu", "tà xùa", "mai châu", "mù cang chải", "tam đảo", "mẫu sơn",
+    "điện biên phủ", "sầm sơn", "pù luông", "cửa lò", "vinh", "thiên cầm", "phong nha",
+    "sơn đoòng", "đồng hới", "cồn cỏ", "lăng cô", "bạch mã", "bà nà", "sơn trà",
+    "mỹ khê", "mỹ sơn", "cù lao chàm", "lý sơn", "kỳ co", "eo gió", "tuy hòa",
+    "gành đá đĩa", "cam ranh", "phan rang", "vĩnh hy", "mũi né", "langbiang",
+    "buôn ma thuột", "pleiku", "biển hồ", "măng đen", "tà đùng", "củ chi", "côn đảo",
+    "hồ tràm", "long hải", "nam cát tiên", "cát tiên", "núi bà đen", "chợ nổi cái răng",
+    "châu đốc", "núi cấm", "rừng tràm trà sư", "hà tiên", "rạch giá", "nam du",
+    "đất mũi", "mỹ tho", "cái bè", "sa đéc", "tràm chim", "hồ ba bể", "ba bể",
+    "na hang", "đền hùng", "hồ núi cốc", "tam chúc", "chu lai", "tam kỳ", "bảo lộc",
+    "quy nhơn", "ninh chữ", "cần giờ", "bình ba", "điệp sơn", "hòn sơn",
+    # POI nổi tiếng trong thành phố (người dùng hay gõ thẳng tên điểm)
+    "hồ gươm", "hồ hoàn kiếm", "hồ tây", "văn miếu", "chùa một cột",
+    "phố cổ hà nội", "chợ bến thành", "dinh độc lập", "nhà thờ đức bà",
+}
+
 
 def _norm(s: Any) -> str:
     return str(s or "").strip().lower()
 
 
+def _strip_accents(s: str) -> str:
+    """Lowercase + remove Vietnamese diacritics ('Hà Giang' -> 'ha giang').
+
+    Lets one data entry serve every spelling users actually type — with or
+    without accents — instead of duplicating each name in the lookup tables."""
+    import unicodedata
+
+    s = _norm(s).replace("đ", "d").replace("Đ", "d")
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
+    )
+
+
+# Accent-insensitive membership set built once at import (tables defined above).
+_DOMESTIC_ACCENTLESS: set[str] = {
+    _strip_accents(x) for x in (DOMESTIC_CITIES | DOMESTIC_PLACES)
+}
+# Multi-word entries also match as whole-word substrings, so compound inputs
+# like "Vinpearl Nha Trang" or "resort Phú Quốc" resolve as domestic. Single
+# words stay exact-match to avoid false positives.
+_DOMESTIC_MULTIWORD: list[str] = [e for e in _DOMESTIC_ACCENTLESS if " " in e]
+
+
+def _is_domestic_place(name: Any) -> bool:
+    s = _strip_accents(name)
+    if s in _DOMESTIC_ACCENTLESS:
+        return True
+    padded = f" {s} "
+    return any(f" {e} " in padded for e in _DOMESTIC_MULTIWORD)
+
+
 def resolve_country(name: Any) -> str:
     """Normalise a country (or well-known Vietnamese city) to a dataset key."""
     n = _norm(name)
-    if n in DOMESTIC_CITIES:
+    if _is_domestic_place(n):
         return "vietnam"
     return COUNTRY_ALIASES.get(n, n)
 
@@ -168,7 +234,7 @@ def resolve_destination(name: Any) -> dict:
     # "Bangkok, Thailand" -> try the leading city part first.
     head = n.split(",")[0].strip()
 
-    if n in DOMESTIC_CITIES or head in DOMESTIC_CITIES:
+    if _is_domestic_place(n) or _is_domestic_place(head):
         return {"kind": "city", "country": "vietnam", "input": name}
 
     if head in AMBIGUOUS_CITIES:
@@ -327,6 +393,26 @@ CITY_IATA: dict[str, str] = {
     "da nang": "DAD", "đà nẵng": "DAD", "danang": "DAD",
     "nha trang": "CXR", "phu quoc": "PQC", "phú quốc": "PQC",
     "da lat": "DLI", "đà lạt": "DLI", "dalat": "DLI", "hue": "HUI", "huế": "HUI",
+    # Full Vietnamese airport coverage (accent-insensitive via _iata). Names map
+    # to the airport that actually serves the place — including nearby gateways
+    # (Hạ Long -> Vân Đồn, Hội An -> Đà Nẵng, Sầm Sơn -> Thọ Xuân).
+    "hải phòng": "HPH", "cát bà": "HPH", "đồ sơn": "HPH",
+    "vân đồn": "VDO", "hạ long": "VDO", "quảng ninh": "VDO", "cô tô": "VDO",
+    "điện biên": "DIN", "điện biên phủ": "DIN",
+    "thanh hóa": "THD", "sầm sơn": "THD", "thọ xuân": "THD",
+    "vinh": "VII", "nghệ an": "VII", "cửa lò": "VII",
+    "đồng hới": "VDH", "quảng bình": "VDH", "phong nha": "VDH",
+    "chu lai": "VCL", "tam kỳ": "VCL", "quảng ngãi": "VCL",
+    "hội an": "DAD",
+    "quy nhơn": "UIH", "bình định": "UIH", "phù cát": "UIH",
+    "tuy hòa": "TBB", "phú yên": "TBB",
+    "cam ranh": "CXR", "khánh hòa": "CXR",
+    "buôn ma thuột": "BMV", "đắk lắk": "BMV",
+    "pleiku": "PXU", "gia lai": "PXU",
+    "côn đảo": "VCS",
+    "cần thơ": "VCA",
+    "rạch giá": "VKG",
+    "cà mau": "CAH",
     # East / Southeast Asia
     # NOTE: Google Flights needs a SPECIFIC airport code, not a metro code
     # (TYO/OSA/SEL return nothing) — so use the main international gateway.
@@ -358,8 +444,13 @@ CITY_IATA: dict[str, str] = {
 }
 
 
+# Accent-insensitive IATA lookup built once ("Quy Nhon" finds "quy nhơn").
+_IATA_ACCENTLESS: dict[str, str] = {_strip_accents(k): v for k, v in CITY_IATA.items()}
+
+
 def _iata(name: Any) -> str | None:
-    return CITY_IATA.get(_norm(name).split(",")[0].strip())
+    head = _norm(name).split(",")[0].strip()
+    return CITY_IATA.get(head) or _IATA_ACCENTLESS.get(_strip_accents(head))
 
 
 def _cache_label(base: str, meta: dict | None) -> str:
@@ -892,6 +983,25 @@ def search_flights(args: dict, ctx: dict) -> dict:
                 "Do NOT invent, estimate, or guess any flight prices for this "
                 "route. Relay the Vietnamese 'message' to the user, then suggest "
                 "a nearby major city that has an international airport."
+            ),
+        }
+
+    # Same airport on both ends ("Hà Nội -> Hà Nội", or two names served by one
+    # airport) — searching would waste quota and confuse the user.
+    if dep == arr:
+        return {
+            "found": False,
+            "error": "same_route",
+            "origin_city": args.get("origin_city"),
+            "destination": args.get("destination"),
+            "airport": dep,
+            "message": (
+                "Điểm đi và điểm đến dùng cùng một sân bay nên không có chuyến "
+                "bay phù hợp. Bạn kiểm tra lại điểm đến giúp mình nhé."
+            ),
+            "hint": (
+                "Origin and destination resolve to the same airport. Ask the "
+                "user to confirm the destination; do not search or invent fares."
             ),
         }
 

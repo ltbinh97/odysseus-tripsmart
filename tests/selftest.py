@@ -331,6 +331,36 @@ check(
     visa_miss["found"] is False and "web_search" in visa_miss["note"],
 )
 
+# --- VN coverage: provinces & famous places are domestic, accent-insensitive ---
+section("VN coverage (63 provinces)")
+for _dest in [
+    "Hà Giang", "Ha Giang", "Tây Ninh", "tay ninh", "Côn Đảo", "Mộc Châu",
+    "Tràng An", "Phong Nha", "Lý Sơn", "Măng Đen", "Đất Mũi", "Hồ Ba Bể",
+    "Buôn Ma Thuột", "Buon Ma Thuot", "Hồ Gươm", "Vinpearl Nha Trang",
+]:
+    _r = T.check_travel_requirements({"nationality": "Vietnamese", "destination_country": _dest}, ctx)
+    check(f"domestic (expanded): {_dest}", _r.get("domestic") is True)
+for _foreign in ["Bangkok", "Sapporo", "Vientiane", "Chiang Mai", "Luang Prabang"]:
+    check(f"not domestic: {_foreign}", not T._is_domestic_place(_foreign))
+# VN airports resolve accent-insensitively to the right IATA code
+for _city, _code in [
+    ("Cần Thơ", "VCA"), ("Can Tho", "VCA"), ("Quy Nhơn", "UIH"), ("Quy Nhon", "UIH"),
+    ("Côn Đảo", "VCS"), ("Vinh", "VII"), ("Buôn Ma Thuột", "BMV"), ("Pleiku", "PXU"),
+    ("Hải Phòng", "HPH"), ("Đồng Hới", "VDH"), ("Tuy Hòa", "TBB"), ("Hạ Long", "VDO"),
+    ("Thanh Hóa", "THD"), ("Cam Ranh", "CXR"), ("Rạch Giá", "VKG"), ("Cà Mau", "CAH"),
+]:
+    check(f"iata: {_city} -> {_code}", T._iata(_city) == _code)
+# origin == destination must be rejected without searching
+_same = T.search_flights(
+    {"origin_city": "Hà Nội", "destination": "Ha Noi", "depart_date": "2026-09-01", "traveler_count": 2}, ctx
+)
+check("flights: same origin/destination -> same_route error", _same.get("error") == "same_route")
+# traveler-count edges
+_pax10 = T.search_flights(
+    {"origin_city": "Hà Nội", "destination": "Phú Quốc", "depart_date": "2026-09-01", "traveler_count": 10}, ctx
+)
+check("flights: 10 pax rejected with friendly cap", _pax10.get("error") == "too_many_travelers")
+
 # --- FIX: domestic travel must never mention embassies/visas ---
 for _dest in ["Vietnam", "Hanoi", "Hà Nội", "Da Nang", "TP.HCM", "Phú Quốc"]:
     _dom = T.check_travel_requirements({"nationality": "Vietnamese", "destination_country": _dest}, ctx)
