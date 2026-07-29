@@ -25,6 +25,37 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
+_VOWELS = set("aeiouyàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ")
+
+
+def looks_gibberish(message: str) -> bool:
+    """High-confidence junk detection — blocks BEFORE any model call (0 tokens).
+
+    Deliberately conservative: only patterns that are essentially never a real
+    travel question. Short answers ("ok", "có", "ừ"), dates ("28/8"), numbers
+    ("2 người") must all pass, so each rule requires strong evidence.
+    """
+    s = message.strip()
+    letters = [c for c in s.lower() if c.isalpha()]
+
+    # Pure symbol/emoji spam: nothing alphanumeric at all ("!!!!", "😂😂😂").
+    if len(s) >= 4 and not letters and not any(c.isdigit() for c in s):
+        return True
+
+    # One character (or one letter) mashed out: "aaaaaaa", "?!?!?!?!" handled above.
+    if len(s) >= 5 and len(set(s.lower())) == 1:
+        return True
+
+    # Long keyboard mash: many letters but almost no vowels — impossible in
+    # Vietnamese or English ("sdfghjklqwe"). Real text is vowel-dense.
+    if len(letters) >= 10:
+        vowel_ratio = sum(1 for c in letters if c in _VOWELS) / len(letters)
+        if vowel_ratio < 0.2:
+            return True
+
+    return False
+
+
 @dataclass
 class _Entry:
     times: list[int] = field(default_factory=list)
@@ -76,6 +107,15 @@ class Guard:
                 "too_long",
                 f"Tin nhắn hơi dài (tối đa {self.max_chars} ký tự). "
                 "Bạn rút ngắn lại giúp mình nhé!",
+            )
+
+        # --- Obvious junk: answer instantly, spend zero model tokens --------
+        if looks_gibberish(message):
+            return Verdict(
+                False,
+                "nonsense",
+                "Mình chưa hiểu ý bạn 😅 Bạn hỏi mình về chuyến đi — điểm đến, "
+                "vé máy bay, khách sạn hay lịch trình nhé!",
             )
 
         e = self._entry(user_id)

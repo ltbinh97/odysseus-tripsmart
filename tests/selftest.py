@@ -557,6 +557,21 @@ g5.check("sweepme", "hello", 1_000)
 g5.sweep(now=1_000 + 86_400_001)
 check("sweep drops stale users", "sweepme" not in g5.hits)
 
+# --- Gibberish filter: junk answered with 0 model tokens; real text passes ---
+g6 = Guard(per_minute=100, per_day=100, max_chars=2000, debounce_ms=0)
+for _junk in ["!!!!", "😂😂😂😂", "??????", "aaaaaaa", "sdfghjklqwrtp", "kkkkkkkk"]:
+    _v = g6.check("junk", _junk, 5_000_000)
+    check(f"gibberish blocked: {_junk!r}", _v.reason == "nonsense" and bool(_v.reply))
+for _real in [
+    "ok", "có", "ừ", "2 người", "28/8 - 31/8", "đi Bangkok", "Hà Nội",
+    "cho mình xem lựa chọn rẻ hơn", "5 ngày", "1/9", "ib", "Quy Nhơn nhé",
+]:
+    check(f"real text passes: {_real!r}", g6.check("real", _real, 5_100_000).allowed)
+# prompt hardening markers present
+check("prompt: confidentiality rule", "Confidentiality" in PROMPT_BODY)
+check("prompt: other-users-data rule", "Other users' data is off-limits" in PROMPT_BODY)
+check("prompt: short refusals for off-topic", "at most 2 sentences" in PROMPT_BODY)
+
 # --------------------------------------------------------------- agent loop
 section("Agent loop (mocked Claude client)")
 

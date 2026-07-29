@@ -173,6 +173,7 @@ cd miniapp && npx tsc --noEmit && npm run build   # đều sạch
 6. **Reflection tắt mặc định** (độ trễ). Bật khi cần chính xác.
 7. **Bảo mật:** `ANTHROPIC_API_KEY`, `SERPAPI_KEY`, `VITE_ORS_API_KEY` nằm trong `.env` (gitignore). Từng dán plaintext trong chat → **nên rotate**.
 8. **Dọn code chết frontend** (mục trên).
+9. **`userId` do client tự khai** (`POST /chat {userId}`) — chưa xác thực với Zalo, nên về lý thuyết ai biết URL + đoán được userId có thể đọc preference/session của người đó qua chat. Đã giảm thiểu bằng rate-limit theo IP (nginx) + prompt cấm lộ dữ liệu user khác, nhưng fix triệt để = verify Zalo access token (`zmp-sdk getAccessToken` → backend gọi Zalo API đổi ra userId thật). Nên làm trước khi production thật.
 
 ---
 
