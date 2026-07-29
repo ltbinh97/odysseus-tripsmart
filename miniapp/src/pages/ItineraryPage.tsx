@@ -93,20 +93,11 @@ export function ItineraryPage() {
         <div className="itin-head__row">
           <div>
             <h1 className="itin-title">{dest.name}</h1>
-            <div className="itin-prefs">
-              {dest.generated ? (
+            {dest.generated && (
+              <div className="itin-prefs">
                 <span className="pref pref--ai">✨ AI tạo từ hội thoại</span>
-              ) : (
-                <>
-                  <span className="pref">
-                    <i className="dot dot--amber" /> Vừa phải
-                  </span>
-                  <span className="pref">
-                    <i className="dot dot--green" /> Cân bằng
-                  </span>
-                </>
-              )}
-            </div>
+              </div>
+            )}
           </div>
           <button
             className={`itin-save ${saved ? "is-saved" : ""}`}
