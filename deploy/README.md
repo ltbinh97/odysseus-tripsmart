@@ -13,8 +13,13 @@ Two separate deploys:
 
 ## ⚡ Quickstart cho ĐÚNG server này (RHEL + sudo + nginx sẵn, git-based)
 
-Recon đã xác nhận: passwordless sudo, nginx 1.20.1, Python 3.9.18, **SELinux bật**.
+Recon đã xác nhận: passwordless sudo, nginx 1.20.1, Python 3.9.18, **SELinux bật**,
+**SSH ở cổng 2222** (không phải 22 → dùng `ssh -p 2222` và `scp -P 2222`).
 Deploy vào `/opt/tripsmart` (KHÔNG để trong `/home` — SELinux chặn systemd exec từ home).
+
+```bash
+ssh -p 2222 zah19-team40@118.102.2.140     # đăng nhập server (cổng 2222)
+```
 
 ```bash
 # ── trên MÁY MAC: đẩy code lên GitHub (repo đã init sẵn, secret đã loại) ──
@@ -23,8 +28,9 @@ gh repo create odysseus-tripsmart --private --source=. --push     # hoặc tạo
 # ── trên SERVER ──
 sudo mkdir -p /opt/tripsmart && sudo chown "$USER":"$USER" /opt/tripsmart
 git clone https://github.com/<user>/odysseus-tripsmart.git /opt/tripsmart   # user=github, pass=PAT
-#   → đưa .env (có key) lên, chạy từ MAC:  scp .env zah19-team40@118.102.2.140:/opt/tripsmart/.env
-cd /opt/tripsmart && bash deploy/server_setup.sh                  # venv + deps + smoke test
+cp .env.example .env && nano .env            # điền ANTHROPIC_API_KEY + SERPAPI_KEY (cách khuyên dùng)
+#   (hoặc từ MAC:  scp -P 2222 .env zah19-team40@118.102.2.140:/opt/tripsmart/.env)
+bash deploy/server_setup.sh                  # venv + deps + smoke test
 
 # chạy nền (systemd)
 sudo cp deploy/tripsmart.service /etc/systemd/system/

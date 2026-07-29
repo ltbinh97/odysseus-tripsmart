@@ -9,15 +9,16 @@ set -euo pipefail
 
 SSH_USER="${SSH_USER:-zah19-team40}"
 SSH_HOST="${SSH_HOST:-118.102.2.140}"
-APP_DIR="${APP_DIR:-/home/zah19-team40/app}"
+SSH_PORT="${SSH_PORT:-2222}"        # this server runs sshd on 2222, not 22
+APP_DIR="${APP_DIR:-/opt/tripsmart}"
 
-echo "→ Pushing code to ${SSH_USER}@${SSH_HOST}:${APP_DIR}"
+echo "→ Pushing code to ${SSH_USER}@${SSH_HOST}:${APP_DIR} (ssh port ${SSH_PORT})"
 
 # --- what NOT to upload: local venv (wrong arch), node deps, build output,
 #     the local SQLite DB, git internals, macOS cruft. Note: .env IS uploaded
 #     so the server gets your keys — remove it from --exclude if you'd rather
 #     create the server .env by hand.
-rsync -az --delete \
+rsync -az --delete -e "ssh -p ${SSH_PORT}" \
   --exclude '.git' \
   --exclude '.venv' \
   --exclude 'miniapp/node_modules' \
