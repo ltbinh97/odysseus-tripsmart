@@ -919,8 +919,20 @@ h3 {
 }
 
 /* ================= Itinerary page ================= */
+/* Fixed layout: header + map pinned, ONLY the stop list scrolls (its own
+   scroll container). Tapping a stop then scrolls just the list — the map
+   stays visible instead of being pushed off-screen. */
 .itinerary {
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 20px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.itin-head,
+.itin-map,
+.itin-geolimited {
+  flex: 0 0 auto;
 }
 .itin-head {
   padding: calc(var(--safe-top) + 18px) 16px 12px;
@@ -1073,7 +1085,12 @@ h3 {
   color: #8a6d2f;
 }
 .itin-body {
-  padding: 0 16px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 16px calc(var(--tabbar-h) + var(--safe-bottom) + 20px);
 }
 .itin-daybar {
   display: flex;
