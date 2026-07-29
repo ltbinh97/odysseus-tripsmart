@@ -315,9 +315,12 @@ h3 {
   background: var(--surface);
   border-top-left-radius: 22px;
   border-top-right-radius: 22px;
-  padding: 10px 18px calc(20px + var(--safe-bottom));
-  max-height: 90dvh;
+  /* Reserve space for the fixed bottom tab bar (+ iOS safe area) so the last
+     control ("Dựng chuyến đi") is never hidden behind it. */
+  padding: 10px 18px calc(20px + var(--tabbar-h) + var(--safe-bottom));
+  max-height: 88dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   animation: slideup 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .sheet__grip {
