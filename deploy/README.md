@@ -37,13 +37,13 @@ sudo cp deploy/tripsmart.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now tripsmart
 systemctl status tripsmart --no-pager        # phải "active (running)"
 
-# nginx (đã cài) + SELinux + HTTPS
+# nginx (đã cài) + SELinux + HTTPS (dùng cert wildcard *.123c.vn CÓ SẴN — KHÔNG cần certbot)
 sudo cp deploy/nginx-zah-40.conf /etc/nginx/conf.d/zah-40.conf
 sudo setsebool -P httpd_can_network_connect 1                     # ⭐ SELinux: cho nginx gọi uvicorn
 sudo nginx -t && sudo systemctl reload nginx
-sudo firewall-cmd --permanent --add-service=http --add-service=https 2>/dev/null && sudo firewall-cmd --reload || true
-sudo dnf install -y epel-release && sudo dnf install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d zah-40.123c.vn        # cần DNS zah-40.123c.vn -> 118.102.2.140
+# Cert /etc/nginx/certs/123c.vn.pem (SAN *.123c.vn) đã bao trùm zah-40.123c.vn.
+# Nếu server CHƯA có sẵn cert wildcard, mới cần certbot:
+#   sudo dnf install -y certbot python3-certbot-nginx && sudo certbot --nginx -d zah-40.123c.vn
 
 # verify (từ Mac):  curl -s https://zah-40.123c.vn/health   → {"ok":true,...}
 ```
