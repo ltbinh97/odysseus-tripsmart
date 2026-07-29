@@ -122,6 +122,13 @@ async def _process(user_id: str, text: str) -> None:
         )
 
 
+@app.get("/webhook/zalo")
+async def zalo_webhook_verify() -> dict:
+    """Zalo (and most platforms) ping the webhook URL with a GET to validate it
+    before saving the config — answer 200 so the console accepts the URL."""
+    return {"ok": True}
+
+
 @app.post("/webhook/zalo")
 async def zalo_webhook(request: Request, background: BackgroundTasks) -> dict:
     """Acknowledge fast so Zalo does not retry; process in the background."""

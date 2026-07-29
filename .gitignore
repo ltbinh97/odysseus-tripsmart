@@ -19,3 +19,7 @@ dist/
 
 # macOS
 .DS_Store
+
+# Slide / tài liệu nộp BTC — không đưa lên repo public
+*.pptx
+~$*
