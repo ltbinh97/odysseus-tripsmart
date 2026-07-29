@@ -983,6 +983,9 @@ h3 {
 }
 .itin-save {
   flex: 0 0 auto;
+  /* Nudged down so it doesn't crowd the top edge (and Zalo's floating ⋯/✕
+     pill on real devices). */
+  margin-top: 12px;
   font-size: 13px;
   font-weight: 700;
   color: var(--teal);
