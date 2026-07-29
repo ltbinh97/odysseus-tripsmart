@@ -11,6 +11,45 @@ Two separate deploys:
 
 ---
 
+## ⚡ Quickstart cho ĐÚNG server này (RHEL + sudo + nginx sẵn, git-based)
+
+Recon đã xác nhận: passwordless sudo, nginx 1.20.1, Python 3.9.18, **SELinux bật**.
+Deploy vào `/opt/tripsmart` (KHÔNG để trong `/home` — SELinux chặn systemd exec từ home).
+
+```bash
+# ── trên MÁY MAC: đẩy code lên GitHub (repo đã init sẵn, secret đã loại) ──
+gh repo create odysseus-tripsmart --private --source=. --push     # hoặc tạo repo private + git push -u origin main
+
+# ── trên SERVER ──
+sudo mkdir -p /opt/tripsmart && sudo chown "$USER":"$USER" /opt/tripsmart
+git clone https://github.com/<user>/odysseus-tripsmart.git /opt/tripsmart   # user=github, pass=PAT
+#   → đưa .env (có key) lên, chạy từ MAC:  scp .env zah19-team40@118.102.2.140:/opt/tripsmart/.env
+cd /opt/tripsmart && bash deploy/server_setup.sh                  # venv + deps + smoke test
+
+# chạy nền (systemd)
+sudo cp deploy/tripsmart.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now tripsmart
+systemctl status tripsmart --no-pager        # phải "active (running)"
+
+# nginx (đã cài) + SELinux + HTTPS
+sudo cp deploy/nginx-zah-40.conf /etc/nginx/conf.d/zah-40.conf
+sudo setsebool -P httpd_can_network_connect 1                     # ⭐ SELinux: cho nginx gọi uvicorn
+sudo nginx -t && sudo systemctl reload nginx
+sudo firewall-cmd --permanent --add-service=http --add-service=https 2>/dev/null && sudo firewall-cmd --reload || true
+sudo dnf install -y epel-release && sudo dnf install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d zah-40.123c.vn        # cần DNS zah-40.123c.vn -> 118.102.2.140
+
+# verify (từ Mac):  curl -s https://zah-40.123c.vn/health   → {"ok":true,...}
+```
+
+Cập nhật về sau: `git push` (Mac) → trên server `cd /opt/tripsmart && git pull && ./.venv/bin/pip install -q -r requirements.txt && sudo systemctl restart tripsmart`.
+
+> Phần tổng quát bên dưới (Ubuntu/apt, không-sudo, tmux…) giữ để tham khảo; server này dùng Quickstart trên.
+
+---
+
+---
+
 ## 0. Bảo mật (làm ngay)
 
 Mật khẩu SSH và các API key đã bị dán plaintext trong chat → **đổi mật khẩu SSH** sau khi setup xong, và cân nhắc rotate `ANTHROPIC_API_KEY` / `SERPAPI_KEY`. `.env` đã nằm trong `.gitignore` — đừng commit.
