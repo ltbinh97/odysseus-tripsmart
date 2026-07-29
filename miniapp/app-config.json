@@ -9,8 +9,12 @@
     "hideAndroidBottomNavigationBar": true,
     "hideIOSSafeAreaBottom": false
   },
-  "listCSS": [],
-  "listSyncJS": [],
+  "listCSS": [
+    "assets/index.css"
+  ],
+  "listSyncJS": [
+    "assets/index.js"
+  ],
   "listAsyncJS": [],
   "pages": [],
   "template": {
