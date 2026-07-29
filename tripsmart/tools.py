@@ -655,6 +655,23 @@ def _map_place(r: dict) -> dict | None:
     }
 
 
+# Results whose Google types match these are not itinerary stops (lodging, tour
+# desks, rentals) — they pollute the plan, so they are filtered out up front.
+_JUNK_PLACE_TYPES: tuple[str, ...] = (
+    "hotel", "lodging", "resort", "hostel", "guest_house", "homestay",
+    "travel_agency", "tour_operator", "tour_agency", "car_rental", "real_estate",
+)
+
+
+def _is_junk_place(r: dict) -> bool:
+    hay = " ".join(
+        str(x).lower()
+        for x in ([r.get("type")] + list(r.get("types") or []) + list(r.get("type_ids") or []))
+        if x
+    )
+    return any(t in hay for t in _JUNK_PLACE_TYPES)
+
+
 def _fetch_places_live(dest: str, days: int) -> dict:
     """The actual Google Maps lookup + itinerary assembly (cacheable unit)."""
 
@@ -664,8 +681,49 @@ def _fetch_places_live(dest: str, days: int) -> dict:
         )
         return data.get("local_results") or []
 
-    attractions = [p for p in (_map_place(r) for r in _maps(f"tourist attractions in {dest}")) if p]
-    food = [p for p in (_map_place(r) for r in _maps(f"best restaurants in {dest}")) if p]
+    def _gather(queries: list[str], need: int) -> list[dict]:
+        """Run query variants in order, merging + deduping (by name) until we
+        have `need` places. Extra variants only run when the previous ones came
+        up short, so the common case still costs a single API call.
+
+        Why variants: Google Maps is phrasing-sensitive — e.g. 'tourist
+        attractions in Phu Quoc' returns NOTHING while the Vietnamese phrasing
+        returns 20 real POIs. One bad phrasing used to produce restaurant-only
+        'itineraries'."""
+        found: list[dict] = []
+        seen: set[str] = set()
+        for q in queries:
+            try:
+                raw = [r for r in _maps(q) if not _is_junk_place(r)]
+            except Exception as exc:  # noqa: BLE001 - one failed variant isn't fatal
+                print(f"[fetch_places query error] {q!r}: {exc!r}")
+                continue
+            for p in (_map_place(r) for r in raw):
+                if not p:
+                    continue
+                key = str(p["name"]).strip().lower()
+                if key and key not in seen:
+                    seen.add(key)
+                    found.append(p)
+            if len(found) >= need:
+                break
+        return found
+
+    # The app speaks Vietnamese (hl=vi), so the Vietnamese phrasing is primary
+    # for attractions; English phrasings are fallbacks for destinations where
+    # it underperforms. Food keeps the proven English phrasing first.
+    attractions = _gather(
+        [
+            f"địa điểm tham quan ở {dest}",
+            f"tourist attractions in {dest}",
+            f"things to do in {dest}",
+        ],
+        need=days * 4,
+    )
+    food = _gather(
+        [f"best restaurants in {dest}", f"quán ăn ngon ở {dest}"],
+        need=days,
+    )
 
     if not attractions and not food:
         raise RuntimeError(f"no places found for {dest!r}")
@@ -710,8 +768,10 @@ def fetch_places(destination: str, days: int = 2, memory: Any = None) -> dict:
     if memory is None:
         return _fetch_places_live(dest, days)
 
+    # "v2" invalidates entries cached by the old single-phrasing fetch, which
+    # could store restaurant-only results (e.g. Phú Quốc) for PLACES_TTL_HOURS.
     payload, meta = memory.cached_or_fetch(
-        "places", f"{dest.lower()}-{days}", config.PLACES_TTL_HOURS,
+        "places", f"v2:{dest.lower()}-{days}", config.PLACES_TTL_HOURS,
         lambda: _fetch_places_live(dest, days),
     )
     sample = [
