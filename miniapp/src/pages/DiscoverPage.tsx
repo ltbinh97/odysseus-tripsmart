@@ -95,7 +95,12 @@ export function DiscoverPage() {
         phải số liệu dựng sẵn.
       </div>
 
+      {/* key: remount the sheet whenever it opens for a different vibe/destination,
+          so its useState initializers pick up the new props — without this the
+          destination field stayed empty when tapping e.g. "Nha Trang" (state is
+          only seeded on first mount). */}
       <ComposerSheet
+        key={dest?.id ?? vibe?.id ?? "blank"}
         open={sheetOpen}
         vibe={vibe}
         destination={dest}
