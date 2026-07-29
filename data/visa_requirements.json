@@ -1,0 +1,45 @@
+{
+  "_note": "Curated for the hackathon demo. Keyed by destination country (lowercase), then by nationality (lowercase). This is a static, vetted lookup table — NOT a live API. State this honestly to judges. Verify against official sources before real travel.",
+
+  "thailand": {
+    "vietnamese": {
+      "visa_type": "visa-free",
+      "max_stay_days": 30,
+      "summary": "Vietnamese citizens are visa-free in Thailand for tourism up to 30 days.",
+      "advisory": "Exchange to Thai Baht before you go — airport rates are usually worse. Carry proof of onward travel."
+    },
+    "default": {
+      "visa_type": "check-required",
+      "summary": "Requirements vary by nationality; verify with the Thai embassy.",
+      "advisory": "Confirm current entry rules before booking."
+    }
+  },
+
+  "china": {
+    "vietnamese": {
+      "visa_type": "visa-required",
+      "max_stay_days": null,
+      "summary": "Vietnamese citizens generally need a visa for mainland China; apply before departure.",
+      "advisory": "Processing can take several business days. Some regions/transit routes have visa-free windows — verify current policy for your specific route and dates."
+    },
+    "default": {
+      "visa_type": "check-required",
+      "summary": "Most nationalities require a visa for mainland China; verify with the Chinese embassy.",
+      "advisory": "Apply well in advance; requirements change — confirm current rules."
+    }
+  },
+
+  "united states": {
+    "vietnamese": {
+      "visa_type": "visa-required",
+      "max_stay_days": null,
+      "summary": "Vietnamese citizens require a B1/B2 visitor visa; Vietnam is not part of the US Visa Waiver Program (no ESTA).",
+      "advisory": "Apply early — interview wait times can be long. Entry rules change; verify current requirements on the official US embassy site before booking."
+    },
+    "default": {
+      "visa_type": "check-required",
+      "summary": "Requirements depend on nationality; VWP countries use ESTA, others need a visa.",
+      "advisory": "Check whether your nationality qualifies for ESTA or requires a full visa."
+    }
+  }
+}

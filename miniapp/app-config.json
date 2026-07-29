@@ -1,0 +1,21 @@
+{
+  "app": {
+    "title": "Odysseus",
+    "headerColor": "#0b2036",
+    "textColor": "white",
+    "leftButton": "none",
+    "statusBar": "transparent",
+    "actionBarHidden": true,
+    "hideAndroidBottomNavigationBar": true,
+    "hideIOSSafeAreaBottom": false
+  },
+  "listCSS": [],
+  "listSyncJS": [],
+  "listAsyncJS": [],
+  "pages": [],
+  "template": {
+    "name": "odysseus",
+    "displayName": "Odysseus — AI Travel Companion",
+    "description": "Chọn vibe, AI dựng chuyến đi. Trợ lý du lịch AI trong Zalo, hỗ trợ đặt vé & khách sạn."
+  }
+}

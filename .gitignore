@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets & local data — NEVER commit these
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+
+# Node / frontend build
+node_modules/
+miniapp/www/
+dist/
+
+# macOS
+.DS_Store

@@ -1,0 +1,301 @@
+[
+  {
+    "name": "search_flights",
+    "description": "Search real flight prices for a route. Call only after origin_city, destination, depart_date and traveler_count are known. Returns ranked options. Never quote a flight or fare from your own knowledge without calling this.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "origin_city": {
+          "type": "string",
+          "description": "Departure city, e.g. 'Ho Chi Minh City' or IATA 'SGN'."
+        },
+        "destination": {
+          "type": "string",
+          "description": "Destination city, e.g. 'Bangkok' or IATA 'BKK'."
+        },
+        "depart_date": {
+          "type": "string",
+          "description": "Departure date, YYYY-MM-DD."
+        },
+        "return_date": {
+          "type": "string",
+          "description": "Return date, YYYY-MM-DD. Omit for one-way."
+        },
+        "traveler_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total number of travelers."
+        },
+        "budget_vnd": {
+          "type": "integer",
+          "description": "Optional budget in VND to rank options against."
+        }
+      },
+      "required": [
+        "origin_city",
+        "destination",
+        "depart_date",
+        "traveler_count"
+      ]
+    }
+  },
+  {
+    "name": "search_hotels",
+    "description": "Search real hotel options and prices in a city, optionally anchored near a specific landmark, venue, or district (use the `near` field for that). Dates are optional: omit them for indicative nightly rates. Use this when the user wants actual hotel options or prices. Do NOT use it merely to advise which area/neighbourhood is convenient — answer that from your own knowledge. When presenting results, report ONLY the `stars`, `rating`, and price the tool returns; never infer a property's star class or amenities (spa, pool, etc.) from its name — if `stars` is null, do not claim a star rating.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "City, e.g. 'Hanoi', 'Bangkok'."
+        },
+        "near": {
+          "type": "string",
+          "description": "Optional landmark, venue, district or address to search around, e.g. 'Mỹ Đình Stadium', 'Sukhumvit', 'Old Quarter'."
+        },
+        "checkin_date": {
+          "type": "string",
+          "description": "Check-in date, YYYY-MM-DD. Optional."
+        },
+        "checkout_date": {
+          "type": "string",
+          "description": "Check-out date, YYYY-MM-DD. Optional."
+        },
+        "guests": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of guests. Defaults to 1."
+        },
+        "star_min": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Optional minimum star rating."
+        },
+        "budget_vnd": {
+          "type": "integer",
+          "description": "Optional total accommodation budget in VND."
+        }
+      },
+      "required": [
+        "destination"
+      ]
+    }
+  },
+  {
+    "name": "check_travel_requirements",
+    "description": "Look up visa and entry requirements. Pass destination_city whenever the user named a city, so the tool can verify the city belongs to the country stated and catch contradictory requests. Returns visa type, max stay, and one practical advisory. Use this for visa/entry/customs questions instead of answering from memory.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "nationality": {
+          "type": "string",
+          "description": "Traveler nationality, e.g. 'Vietnamese'. Defaults to Vietnamese if unknown."
+        },
+        "destination_country": {
+          "type": "string",
+          "description": "Destination country as the user stated it. May be omitted if destination_city is given. If the city and country contradict each other, the tool returns a destination_conflict error."
+        },
+        "destination_city": {
+          "type": "string",
+          "description": "The specific city the user named, if any (e.g. 'Bangkok', 'Tokyo'). Pass this whenever the user mentions a city — the tool uses it to verify the city really is in the country given, and returns a conflict error if not."
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "type": "web_search_20250305",
+    "name": "web_search",
+    "max_uses": 3
+  },
+  {
+    "name": "generate_itinerary",
+    "description": "Build a real day-by-day itinerary of actual, well-known places (attractions + restaurants) for a destination, with real ratings and map coordinates. Call this when the user wants a detailed plan / schedule / 'lịch trình' for a place — not merely a destination suggestion. The Zalo app renders the result as an interactive map with a day-by-day list, so do NOT enumerate every stop in your text reply — give a short intro and tell the user to open the itinerary. Use the destination already established in the conversation; do not ask again if you already know it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": "string",
+          "description": "City or place to build the itinerary for, e.g. 'Kyoto', 'Đà Nẵng'."
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Number of days. Defaults to 2 if unknown."
+        }
+      },
+      "required": [
+        "destination"
+      ]
+    }
+  },
+  {
+    "name": "family_travel_checklist",
+    "description": "Get vetted preparation guidance for traveling with children or family to a destination. Returns child-specific documents, health/vaccination notes, and customs rules (e.g. carrying formula/milk). Call this whenever the trip involves a child or family.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "destination_country": {
+          "type": "string",
+          "description": "Destination country."
+        },
+        "child_age_range": {
+          "type": "string",
+          "description": "Age range of the child if known, e.g. '0-2', '3-6', '7-12'. Omit if unknown.",
+          "enum": [
+            "0-2",
+            "3-6",
+            "7-12",
+            "13-17"
+          ]
+        },
+        "traveling_with_one_parent": {
+          "type": "boolean",
+          "description": "True if the child travels with only one parent (affects consent-letter requirements)."
+        }
+      },
+      "required": [
+        "destination_country"
+      ]
+    }
+  },
+  {
+    "name": "save_user_preference",
+    "description": "Persist a durable user preference so it is remembered in future sessions. Call only for lasting facts (home city, travels with child, dietary needs, seat/cabin preference). Never for one-off trip details or sensitive data (passport, DOB, phone, payment).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Preference key.",
+          "enum": [
+            "home_city",
+            "budget_tier",
+            "companions",
+            "dietary",
+            "flight_preference",
+            "hotel_preference"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "description": "Preference value, e.g. 'Ho Chi Minh City', 'mid', '1 child age 3-6', 'vegetarian', 'direct flights only'."
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    }
+  },
+  {
+    "name": "forget_user_preference",
+    "description": "Delete a stored preference when the user says it is no longer true or asks you to forget it (e.g. 'I moved to Hanoi', 'we don't travel with our daughter any more', 'forget what you know about me'). Pass key='all' to clear everything. Always confirm to the user afterwards.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Preference key to delete, or 'all' to clear every stored preference.",
+          "enum": [
+            "home_city",
+            "budget_tier",
+            "companions",
+            "dietary",
+            "flight_preference",
+            "hotel_preference",
+            "all"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ]
+    }
+  },
+  {
+    "name": "generate_summary_card",
+    "description": "Produce a structured, shareable trip summary card (JSON) that the Zalo frontend renders as a rich card and the user can forward into group chats. Call this once the user has a chosen plan. Include only the fields that apply — omit flight_summary for accommodation-only plans and omit visa_status for domestic trips.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": "string"
+        },
+        "dates": {
+          "type": "string",
+          "description": "Human-readable, e.g. '28/08 - 31/08'. Omit if no dates were fixed."
+        },
+        "traveler_count": {
+          "type": "integer"
+        },
+        "flight_summary": {
+          "type": "string",
+          "description": "e.g. 'VietJet round-trip, 3.6M VND'. Omit for accommodation-only plans."
+        },
+        "hotel_summary": {
+          "type": "string",
+          "description": "e.g. '3-star near Sukhumvit, 3 nights, 2.9M VND'. Omit if no accommodation was chosen."
+        },
+        "total_vnd": {
+          "type": "integer"
+        },
+        "budget_vnd": {
+          "type": "integer"
+        },
+        "visa_status": {
+          "type": "string",
+          "description": "e.g. 'Visa-free up to 30 days for Vietnamese citizens'. Omit entirely for domestic trips."
+        },
+        "tip": {
+          "type": "string",
+          "description": "One practical tip."
+        }
+      },
+      "required": [
+        "destination",
+        "traveler_count"
+      ]
+    }
+  },
+  {
+    "name": "suggest_destinations",
+    "description": "Get popular destinations that OTHER users of this app have searched, most-popular first, each with a few real sample places. Call this when the user is undecided, asks for ideas / 'gợi ý điểm đến' / 'mọi người hay đi đâu', or you want to seed suggestions grounded in real demand instead of guessing. If the store is empty (early user), it says so — then suggest from your own knowledge and do NOT claim they came from other users.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "description": "How many destinations to return. Defaults to 6."
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "initiate_booking",
+    "description": "Hand the user off to checkout for a chosen option and fire the affiliate commission-tracking event. Call ONLY after the user explicitly chooses an option and asks to book. Does not complete payment (that happens on the partner/Mini App side).",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "option_id": {
+          "type": "string",
+          "description": "Identifier of the chosen flight+hotel option from a prior search_prices result."
+        },
+        "destination": {
+          "type": "string"
+        },
+        "total_vnd": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "option_id"
+      ]
+    }
+  }
+]

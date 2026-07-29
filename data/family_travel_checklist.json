@@ -1,0 +1,74 @@
+{
+  "_note": "Curated family-travel guidance for the hackathon demo. Keyed by destination country (lowercase), plus a 'default'. Vetted static content — verify health/entry specifics with official sources before travel.",
+
+  "china": {
+    "documents": [
+      "Child's own passport (valid 6+ months) and visa if required",
+      "Copy of birth certificate showing parentage",
+      "If traveling with only one parent: a notarized consent letter from the absent parent is strongly recommended"
+    ],
+    "health": [
+      "Check routine childhood vaccinations are up to date before travel",
+      "Consider carrying a basic children's medicine kit; brands/labels may be unfamiliar locally",
+      "Air quality varies by city — check forecasts and consider masks for young children on high-pollution days"
+    ],
+    "customs_and_practical": [
+      "Baby formula and milk for the child are generally allowed in reasonable quantities for the trip",
+      "Carry documentation of any prescription medicines",
+      "Language barrier is significant — save your hotel address in Chinese characters"
+    ]
+  },
+
+  "thailand": {
+    "documents": [
+      "Child's own passport (valid 6+ months)",
+      "If traveling with one parent: consent letter recommended"
+    ],
+    "health": [
+      "Ensure routine vaccinations are current",
+      "Sun and heat protection for children — high UV; hydrate often",
+      "Tap water is not for drinking — use bottled/boiled water, including for formula"
+    ],
+    "customs_and_practical": [
+      "Formula and baby food for the trip are permitted",
+      "Many family-friendly resorts; strollers work in malls but less so on uneven streets",
+      "Carry your hotel address written down"
+    ]
+  },
+
+  "united states": {
+    "documents": [
+      "Child's own passport and B1/B2 visa (Vietnam is not in the Visa Waiver Program)",
+      "Birth certificate copy showing parentage",
+      "If one parent travels alone with the child: a notarized consent letter is strongly advised"
+    ],
+    "health": [
+      "Confirm routine childhood vaccinations are up to date",
+      "Travel medical insurance is important — US healthcare is very expensive without it",
+      "Carry prescription medicines in original packaging with a doctor's note"
+    ],
+    "customs_and_practical": [
+      "Reasonable quantities of formula, breast milk, and baby food are allowed (declare at security)",
+      "Car seats are typically required for young children in vehicles/taxis",
+      "Distances are large — plan for domestic flights or long drives between cities"
+    ]
+  },
+
+  "default": {
+    "documents": [
+      "Child's own valid passport and any required visa",
+      "Birth certificate copy",
+      "Consent letter if traveling with only one parent"
+    ],
+    "health": [
+      "Verify routine vaccinations are current",
+      "Pack a small children's medicine kit and any prescriptions with documentation",
+      "Check destination-specific health advisories"
+    ],
+    "customs_and_practical": [
+      "Formula/baby food for the trip is generally permitted; declare if asked",
+      "Save your accommodation address in the local language",
+      "Check whether car seats are required locally"
+    ]
+  }
+}

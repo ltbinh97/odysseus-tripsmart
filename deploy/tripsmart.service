@@ -1,0 +1,18 @@
+[Unit]
+Description=TripSmart backend (FastAPI/uvicorn) for the Odysseus Zalo Mini App
+After=network.target
+
+[Service]
+Type=simple
+User=zah19-team40
+# Adjust if you put the code elsewhere:
+WorkingDirectory=/home/zah19-team40/app
+EnvironmentFile=/home/zah19-team40/app/.env
+# .venv created on the server (see deploy/README.md). Binds to localhost only —
+# nginx terminates TLS on 443 and reverse-proxies to this port.
+ExecStart=/home/zah19-team40/app/.venv/bin/uvicorn tripsmart.server:app --host 127.0.0.1 --port 3100
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
