@@ -650,7 +650,8 @@ def _serpapi_hotels(
     if not q:
         raise RuntimeError("no destination for hotel query")
 
-    cache_key = f"{q.lower()}-{checkin}-{checkout}-{guests}"
+    # Accent-stripped so "Phú Quốc" / "Phu Quoc" share one cache entry.
+    cache_key = f"{_strip_accents(q)}-{checkin}-{checkout}-{guests}"
 
     def _fetch() -> list[dict]:
         return _fetch_hotel_props(q, checkin, checkout, guests, nights)
@@ -861,8 +862,10 @@ def fetch_places(destination: str, days: int = 2, memory: Any = None) -> dict:
 
     # "v2" invalidates entries cached by the old single-phrasing fetch, which
     # could store restaurant-only results (e.g. Phú Quốc) for PLACES_TTL_HOURS.
+    # Accent-stripped key so "Phú Quốc" and "Phu Quoc" share one entry (and one
+    # quota spend) instead of two.
     payload, meta = memory.cached_or_fetch(
-        "places", f"v2:{dest.lower()}-{days}", config.PLACES_TTL_HOURS,
+        "places", f"v2:{_strip_accents(dest)}-{days}", config.PLACES_TTL_HOURS,
         lambda: _fetch_places_live(dest, days),
     )
     sample = [
