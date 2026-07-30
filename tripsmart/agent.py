@@ -92,16 +92,21 @@ class TripSmartAgent:
         state_text = _render_trip_state(trip_state or {})
         if state_text:
             dyn.append(
-                "## Established trip context (auto-tracked from this conversation)\n"
+                "## Trip context (auto-tracked from this conversation's LATEST searches)\n"
                 f"{state_text}\n"
-                "These facts are already settled — use them and do NOT re-ask, "
-                "unless the user changes them."
+                "Use these as working defaults instead of re-asking. PRECEDENCE on any "
+                "conflict: (1) the recent messages, (2) the condensed history below, "
+                "(3) this tracked context — it only updates when a search runs, so if "
+                "the user said something changed (new destination, dates, group size) "
+                "without a new search yet, follow the conversation and run a fresh "
+                "search rather than repeating these values."
             )
         if summary:
             dyn.append(
                 "## Earlier in this conversation (condensed)\n"
                 f"{summary}\n"
-                "(Older messages were trimmed for cost; this digest is what happened.)"
+                "(Older messages were trimmed for cost; this digest is what happened. "
+                "It outranks the tracked trip context above when they disagree.)"
             )
         if dyn:
             blocks.append({"type": "text", "text": "\n\n".join(dyn)})
@@ -242,7 +247,7 @@ class TripSmartAgent:
 
                 # Optional reflection: verify a tool-grounded answer before sending.
                 if config.ENABLE_REFLECTION and tools_used:
-                    reply = self._reflect(user_id, messages, reply, total_in, total_out) or reply
+                    reply = self._reflect(user_id, messages, reply, trip_state, summary) or reply
 
                 self._persist(user_id, messages, summary, trip_state)
                 self.memory.log_usage(user_id, total_in, total_out)
@@ -320,7 +325,12 @@ class TripSmartAgent:
         self.memory.save_session(user_id, kept, merge_summary(summary, dropped), trip_state)
 
     def _reflect(
-        self, user_id: str, messages: list[dict], reply: str, total_in: int, total_out: int
+        self,
+        user_id: str,
+        messages: list[dict],
+        reply: str,
+        trip_state: dict | None = None,
+        summary: str | None = None,
     ) -> str | None:
         """One verification pass over a tool-grounded answer.
 
@@ -346,7 +356,7 @@ class TripSmartAgent:
             resp = self._create_with_retry(
                 model=self.model,
                 max_tokens=config.MAX_TOKENS,
-                system=self._build_system(user_id),
+                system=self._build_system(user_id, trip_state, summary),
                 tools=self._build_tools(),
                 messages=check,
             )

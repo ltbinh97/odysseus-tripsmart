@@ -680,8 +680,33 @@ _sys2 = mock.last_request.get("system")
 check("dynamic context sent as SECOND system block", isinstance(_sys2, list) and len(_sys2) == 2)
 check("static block still cached", _sys2[0].get("cache_control", {}).get("type") == "ephemeral")
 check("dynamic block NOT cached (would bust prompt cache)", "cache_control" not in _sys2[1])
-check("dynamic block carries established trip context",
-      "Established trip context" in _sys2[1]["text"] and "Bangkok" in _sys2[1]["text"])
+check("dynamic block carries tracked trip context",
+      "Trip context" in _sys2[1]["text"] and "Bangkok" in _sys2[1]["text"])
+# Wrong-context guardrails: the block must state precedence (conversation wins
+# over stale tracked state) so a user pivot without a new search isn't overridden.
+check("dynamic block states precedence rules", "PRECEDENCE" in _sys2[1]["text"])
+
+# Pivot: a later search with a NEW destination must overwrite the tracked state.
+def pivot_script(call: int):
+    if call == 1:
+        return _Response(
+            "tool_use",
+            [{"type": "tool_use", "id": "p1", "name": "search_flights",
+              "input": {"origin_city": "Hà Nội", "destination": "Nha Trang",
+                        "depart_date": "2026-09-10", "return_date": "2026-09-14",
+                        "traveler_count": 4}}],
+            _Usage(10, 10),
+        )
+    return _Response("end_turn", [{"type": "text", "text": "đã đổi sang Nha Trang"}], _Usage(10, 10))
+
+agent_pivot = TripSmartAgent(client=_MockClient(pivot_script), memory=mem2, guard=Guard())
+agent_pivot.handle_message("u-agent", "Thôi đổi: Hà Nội đi Nha Trang 10-14/09, 4 người")
+_state2 = mem2.load_session("u-agent")["trip_state"]
+check("pivot overwrites destination", _state2.get("destination") == "Nha Trang")
+check("pivot overwrites origin/dates/pax",
+      _state2.get("origin") == "Hà Nội" and _state2.get("depart_date") == "2026-09-10"
+      and _state2.get("pax") == 4)
+check("unchanged fields survive pivot", _state2.get("budget_vnd") == 8_000_000)
 
 # Failed tool calls must NOT pollute the state.
 from tripsmart.agent import _update_trip_state  # noqa: E402
