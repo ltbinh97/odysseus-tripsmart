@@ -54,7 +54,7 @@ npm run build    # tsc --noEmit && vite build -> www/
 | Key | Ý nghĩa |
 |---|---|
 | `ANTHROPIC_API_KEY` | Bắt buộc — gọi Claude. |
-| `MODEL` | `claude-haiku-4-5-20251001` (đang dùng). Đổi qua env. |
+| `MODEL` | `claude-sonnet-5` (đang dùng — đổi từ Haiku 30/07 để demo chất lượng hơn; đắt hơn ~3-5x, chậm hơn chút). Đổi qua env. ⚠️ `.env` KHÔNG sync qua git — đổi model phải sửa cả `.env` local lẫn server. |
 | `SERPAPI_KEY` | **Bắt buộc để có giá/địa điểm thật** (Google Flights/Hotels/Maps). Free tier ~250 search/tháng: https://serpapi.com. Trống → vé/khách sạn/lịch trình trả thông báo "chưa tra được", **không mock**. |
 | `MAX_TOKENS` | `1000`. |
 | `MAX_TOOL_TURNS` | `8` (⚠️ `.env` ghi đè default trong `config.py`). |
