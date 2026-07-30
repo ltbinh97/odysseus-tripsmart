@@ -755,6 +755,37 @@ check("continuation budget respected", _m3.calls == 1 + 2)
 check("trim: cuts at sentence end",
       _trim_to_sentence("Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé. Cụt giữa chừ") == "Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé.")
 check("trim: keeps text without boundaries", _trim_to_sentence("không có dấu câu nào ở đây cả") == "không có dấu câu nào ở đây cả")
+# --- Poisoned-session self-heal (the BTC 'hệ thống đang bận' loop) ---
+section("Poisoned session self-heal")
+from tripsmart.agent import _sanitize_history  # noqa: E402
+
+_poisoned = [
+    {"role": "user", "content": "tìm vé giúp mình"},
+    {"role": "assistant", "content": []},                       # empty content -> 400
+    {"role": "user", "content": "thử lại"},
+    {"role": "assistant", "content": [                          # dangling tool_use -> 400
+        {"type": "text", "text": "Để mình tra"},
+        {"type": "tool_use", "id": "zz", "name": "search_flights", "input": {}},
+    ]},
+]
+_clean = _sanitize_history(_poisoned)
+check("sanitize drops empty-content messages", all(m.get("content") for m in _clean))
+check("sanitize drops trailing dangling tool_use",
+      not any(b.get("type") == "tool_use" for m in _clean if isinstance(m.get("content"), list) for b in m["content"]))
+check("sanitize keeps the good messages", [m["content"] for m in _clean] == ["tìm vé giúp mình", "thử lại"])
+
+# End-to-end: a session stored by the old build must recover on the next message.
+_mem_poison = Memory(":memory:")
+_mem_poison.save_session("u-poison", _poisoned)
+_mp = _MockClient(lambda c: _Response("end_turn", [{"type": "text", "text": "đã hồi phục"}], _Usage(10, 10)))
+_ap = TripSmartAgent(client=_mp, memory=_mem_poison, guard=Guard())
+_rp = _ap.handle_message("u-poison", "alo còn đó không?")
+check("poisoned session answers again", _rp.reply == "đã hồi phục" and _rp.blocked is None)
+_sent = _mp.last_request.get("messages") or []
+check("request sent to API contains no dangling tool_use",
+      not any(b.get("type") == "tool_use" for m in _sent if isinstance(m.get("content"), list) for b in m["content"]))
+check("request sent to API contains no empty content", all(m.get("content") for m in _sent))
+
 check("trim: drops orphan list marker",
       _trim_to_sentence("Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé.\n\n4. Bị cắt giữa chừ").endswith("ngưỡng nhé."))
 

@@ -186,7 +186,10 @@ class TripSmartAgent:
             },
         }
 
-        messages: list[dict] = [*session["messages"], {"role": "user", "content": user_message}]
+        messages: list[dict] = [
+            *_sanitize_history(session["messages"]),
+            {"role": "user", "content": user_message},
+        ]
         card: dict | None = None
         itinerary: dict | None = None
         total_in = total_out = 0
@@ -221,8 +224,23 @@ class TripSmartAgent:
             total_out += getattr(usage, "output_tokens", 0) or 0
 
             content = _normalise_content(response.content)
-            messages.append({"role": "assistant", "content": content})
             stop_reason = getattr(response, "stop_reason", None)
+            # An empty assistant message poisons the persisted history (the API
+            # rejects it on every later turn) — never append one.
+            if not content:
+                print(f"[empty response] stop_reason={stop_reason}")
+                self._persist(user_id, messages[:-1], summary, trip_state)
+                self.memory.log_usage(user_id, total_in, total_out)
+                return AgentResult(
+                    reply=(
+                        "Xin lỗi, mình chưa trả lời trọn vẹn được. "
+                        "Bạn nhắn lại ngắn gọn hơn giúp mình nhé!"
+                    ),
+                    card=card,
+                    itinerary=itinerary,
+                    blocked="empty_reply",
+                )
+            messages.append({"role": "assistant", "content": content})
 
             # ---- Output ran out mid-answer: stitch a continuation ----
             # A reply that hits max_tokens used to be returned cut mid-sentence.
@@ -493,6 +511,42 @@ _CONTINUE_PROMPT = (
     "chính xác từ chỗ bị đứt — không lặp lại phần đã viết, không chào hỏi, "
     "không mở đầu lại."
 )
+
+
+def _sanitize_history(messages: list[dict]) -> list[dict]:
+    """Self-heal a session whose stored history would be rejected by the API.
+
+    Sessions saved by older builds could end with an assistant message whose
+    tool_use never received a tool_result (a max_tokens turn cut mid-tools), or
+    contain empty-content messages. Anthropic rejects such history with a 400 —
+    which surfaced as 'hệ thống đang quá tải' on EVERY later message from that
+    user, forever, because the poison lived in the DB. Sanitising at load time
+    heals those sessions on their next message with no data reset needed.
+    """
+    out: list[dict] = []
+    for m in messages:
+        content = m.get("content")
+        if not content:  # empty string or empty list -> API 400
+            continue
+        if isinstance(content, list):
+            blocks = [b for b in content if isinstance(b, dict) and b.get("type")]
+            if not blocks:
+                continue
+            m = {**m, "content": blocks}
+        out.append(m)
+    # A trailing assistant turn with tool_use has no tool_result after it -> 400.
+    while out:
+        last = out[-1]
+        content = last.get("content")
+        if (
+            last.get("role") == "assistant"
+            and isinstance(content, list)
+            and any(b.get("type") == "tool_use" for b in content)
+        ):
+            out.pop()
+            continue
+        break
+    return out
 
 
 def _trim_to_sentence(text: str) -> str:
