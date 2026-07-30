@@ -661,7 +661,7 @@ check(
     "tools sent with cache_control on last",
     len(_tools) == 11 and _tools[-1].get("cache_control", {}).get("type") == "ephemeral",
 )
-check("max_tokens capped from config", mock.last_request.get("max_tokens") <= 1000)
+check("max_tokens capped from config", mock.last_request.get("max_tokens") <= 2000)
 check("history persisted after turn", len(mem2.load_session("u-agent")["messages"]) >= 3)
 check("usage logged", mem2.usage_today("u-agent")["in_tokens"] == 3600)
 check("tool results are JSON-serialisable", True)
@@ -707,6 +707,56 @@ check("pivot overwrites origin/dates/pax",
       _state2.get("origin") == "Hà Nội" and _state2.get("depart_date") == "2026-09-10"
       and _state2.get("pax") == 4)
 check("unchanged fields survive pivot", _state2.get("budget_vnd") == 8_000_000)
+
+# --- Truncated replies: stitching, tool rescue, sentence trim ---
+section("Truncation handling (max_tokens)")
+from tripsmart.agent import _trim_to_sentence  # noqa: E402
+
+def stitch_script(call: int):
+    if call == 1:
+        return _Response("max_tokens", [{"type": "text", "text": "Giá vé rẻ nhất là 3,2 tri"}], _Usage(10, 10))
+    return _Response("end_turn", [{"type": "text", "text": "ệu đồng cho 2 người, bay thẳng."}], _Usage(10, 10))
+
+_m1 = _MockClient(stitch_script)
+_a1 = TripSmartAgent(client=_m1, memory=Memory(":memory:"), guard=Guard())
+_r1 = _a1.handle_message("u-stitch", "giá vé?")
+check("continuation stitches seamlessly (no newline seam)",
+      _r1.reply == "Giá vé rẻ nhất là 3,2 triệu đồng cho 2 người, bay thẳng.")
+check("stitched reply not flagged", _r1.blocked is None)
+check("continuation used exactly one extra call", _m1.calls == 2)
+
+def tool_cut_script(call: int):
+    if call == 1:  # max_tokens landed after a COMPLETE tool_use block
+        return _Response(
+            "max_tokens",
+            [{"type": "text", "text": "Để mình tra visa nhé."},
+             {"type": "tool_use", "id": "tc1", "name": "check_travel_requirements",
+              "input": {"nationality": "Vietnamese", "destination_country": "Thailand"}}],
+            _Usage(10, 10),
+        )
+    return _Response("end_turn", [{"type": "text", "text": "Miễn visa 30 ngày."}], _Usage(10, 10))
+
+_m2 = _MockClient(tool_cut_script)
+_a2 = TripSmartAgent(client=_m2, memory=Memory(":memory:"), guard=Guard())
+_r2 = _a2.handle_message("u-toolcut", "cần visa không?")
+check("max_tokens inside a tool turn still runs the tool", _r2.reply == "Miễn visa 30 ngày.")
+
+def always_cut_script(call: int):
+    return _Response("max_tokens", [{"type": "text", "text": "Đây là một câu hoàn chỉnh khá dài để vượt ngưỡng cắt. Còn câu này thì bị chém giữa chừ"}], _Usage(10, 10))
+
+_m3 = _MockClient(always_cut_script)
+_a3 = TripSmartAgent(client=_m3, memory=Memory(":memory:"), guard=Guard())
+_r3 = _a3.handle_message("u-cut", "kể dài vào")
+check("exhausted continuations -> trimmed to last full sentence",
+      _r3.reply.endswith("vượt ngưỡng cắt.") and "giữa chừ" not in _r3.reply.split(".")[-1])
+check("exhausted continuations flagged as truncated", _r3.blocked == "truncated")
+check("continuation budget respected", _m3.calls == 1 + 2)
+
+check("trim: cuts at sentence end",
+      _trim_to_sentence("Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé. Cụt giữa chừ") == "Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé.")
+check("trim: keeps text without boundaries", _trim_to_sentence("không có dấu câu nào ở đây cả") == "không có dấu câu nào ở đây cả")
+check("trim: drops orphan list marker",
+      _trim_to_sentence("Một câu dài đủ bốn mươi ký tự để qua ngưỡng nhé.\n\n4. Bị cắt giữa chừ").endswith("ngưỡng nhé."))
 
 # Failed tool calls must NOT pollute the state.
 from tripsmart.agent import _update_trip_state  # noqa: E402
@@ -990,8 +1040,11 @@ class _Truncated:
 _r_trunc = TripSmartAgent(
     client=_Truncated(), memory=Memory(":memory:"), guard=Guard()
 ).handle_message("u-trunc", "x")
-check("truncated response never returns empty text", bool(_r_trunc.reply))
-check("truncated response is flagged", _r_trunc.blocked == "truncated")
+check("truncated tool turn never returns empty text", bool(_r_trunc.reply))
+# New semantics: a COMPLETE tool_use under max_tokens is promoted and RUN (the
+# old code replied with dangling preamble text instead). This mock repeats the
+# identical call forever, so the thrash guard is what correctly stops it.
+check("truncated tool turn is rescued then thrash-guarded", _r_trunc.blocked == "no_progress")
 
 
 class _NoText:

@@ -458,6 +458,8 @@ def _msg_gist(msg: dict) -> str | None:
     text = " ".join(str(text).split())
     if not text:
         return None
+    if text.startswith("[Hệ thống]"):
+        return None  # internal continuation nudges aren't conversation content
     if len(text) > 160:
         text = text[:157] + "…"
     return ("User: " if msg.get("role") == "user" else "Assistant: ") + text

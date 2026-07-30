@@ -191,6 +191,8 @@ class TripSmartAgent:
         itinerary: dict | None = None
         total_in = total_out = 0
         tools_used = 0
+        continuations = 0  # continuation calls used to stitch max_tokens overflows
+        reply_prefix = ""  # text carried over from stitched (truncated) turns
         prev_sig: tuple | None = None  # last turn's tool-call signature (thrash guard)
 
         # ---- 3-5. Reasoning loop ----
@@ -222,6 +224,54 @@ class TripSmartAgent:
             messages.append({"role": "assistant", "content": content})
             stop_reason = getattr(response, "stop_reason", None)
 
+            # ---- Output ran out mid-answer: stitch a continuation ----
+            # A reply that hits max_tokens used to be returned cut mid-sentence.
+            # Claude 5 models don't support assistant-prefill continuation, so we
+            # append a system-style USER nudge telling the model to resume from
+            # the exact cut point, then concatenate the texts directly (no
+            # newline seam) when assembling the final reply.
+            while (
+                stop_reason == "max_tokens"
+                and continuations < config.MAX_CONTINUATIONS
+                and content
+                and content[-1].get("type") == "text"
+            ):
+                continuations += 1
+                if emit:
+                    emit("status", {"text": "✍️ Câu trả lời dài — đang viết nốt…"})
+                messages.append({"role": "user", "content": _CONTINUE_PROMPT})
+                try:
+                    response = self._create_with_retry(
+                        model=self.model,
+                        max_tokens=config.MAX_TOKENS,
+                        system=self._build_system(user_id, trip_state, summary),
+                        tools=self._build_tools(),
+                        messages=messages,
+                    )
+                except Exception as exc:  # noqa: BLE001 - keep the partial text
+                    print(f"[continuation error] {exc!r}")
+                    messages.pop()  # drop the dangling continue-nudge
+                    break
+                usage = getattr(response, "usage", None)
+                total_in += getattr(usage, "input_tokens", 0) or 0
+                total_out += getattr(usage, "output_tokens", 0) or 0
+                # Carry the partial text forward, then work on the new turn.
+                reply_prefix += "\n".join(
+                    b.get("text", "") for b in content if b.get("type") == "text"
+                )
+                content = _normalise_content(response.content)
+                messages.append({"role": "assistant", "content": content})
+                stop_reason = getattr(response, "stop_reason", None)
+
+            # max_tokens landed INSIDE a tool call: the tool blocks that did
+            # complete are runnable — treat this as a tool turn so the loop keeps
+            # going, instead of replying with just the dangling preamble text
+            # ("Để mình tra vé…") and never running the search.
+            if stop_reason == "max_tokens" and any(
+                b.get("type") == "tool_use" for b in content
+            ):
+                stop_reason = "tool_use"
+
             # A server-side tool (Anthropic web_search) may pause a long turn.
             # The API has already appended its server_tool_use / result blocks to
             # `content`; re-send to let it resume, don't treat this as the answer.
@@ -229,8 +279,11 @@ class TripSmartAgent:
                 continue
 
             if stop_reason != "tool_use":
-                reply = "\n".join(
-                    b.get("text", "") for b in content if b.get("type") == "text"
+                reply = (
+                    reply_prefix
+                    + "\n".join(
+                        b.get("text", "") for b in content if b.get("type") == "text"
+                    )
                 ).strip()
 
                 # A response truncated at max_tokens can end with no usable text
@@ -244,6 +297,19 @@ class TripSmartAgent:
                     self._persist(user_id, messages, summary, trip_state)
                     self.memory.log_usage(user_id, total_in, total_out)
                     return AgentResult(reply=reply, card=card, itinerary=itinerary, blocked=blocked)
+
+                # Still truncated after all continuation attempts: never show a
+                # half sentence — trim back to the last complete one and surface
+                # the 'truncated' notice instead of failing silently.
+                if stop_reason == "max_tokens":
+                    self._persist(user_id, messages, summary, trip_state)
+                    self.memory.log_usage(user_id, total_in, total_out)
+                    return AgentResult(
+                        reply=_trim_to_sentence(reply),
+                        card=card,
+                        itinerary=itinerary,
+                        blocked="truncated",
+                    )
 
                 # Optional reflection: verify a tool-grounded answer before sending.
                 if config.ENABLE_REFLECTION and tools_used:
@@ -418,6 +484,31 @@ _TOOL_LABELS = {
     "save_user_preference": "💾 Đang ghi nhớ sở thích…",
     "forget_user_preference": "🗑️ Đang cập nhật ghi nhớ…",
 }
+
+
+# User-role nudge used to resume a reply that hit max_tokens (Claude 5 models
+# don't support assistant prefill). merge_summary skips it via the marker.
+_CONTINUE_PROMPT = (
+    "[Hệ thống] Câu trả lời vừa rồi bị cắt do giới hạn độ dài. Hãy viết TIẾP "
+    "chính xác từ chỗ bị đứt — không lặp lại phần đã viết, không chào hỏi, "
+    "không mở đầu lại."
+)
+
+
+def _trim_to_sentence(text: str) -> str:
+    """Cut a truncated reply back to its last COMPLETE sentence, so the user
+    never sees a thought chopped mid-word. Falls back to the raw text when no
+    sentence boundary exists in a useful position."""
+    import re
+
+    enders = ".!?…:\n"
+    best = max(text.rfind(c) for c in enders)
+    # Only trim when a boundary exists past ~40% of the text — otherwise we'd
+    # throw away most of an answer that simply lacks punctuation.
+    if best >= max(40, int(len(text) * 0.4)):
+        text = text[: best + 1].rstrip()
+    # Drop an orphan list marker left dangling at the end ("…\n\n4.").
+    return re.sub(r"\n\s*(?:\d+[.)]|[-•*])\s*$", "", text).rstrip()
 
 
 # Which tool args feed the durable trip state. Extracted from SUCCESSFUL tool

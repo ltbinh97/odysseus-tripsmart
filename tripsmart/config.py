@@ -31,8 +31,14 @@ def _bool(key: str, default: bool) -> bool:
 MODEL = _env("MODEL", "claude-sonnet-5")
 
 # Output cap. Zalo replies are short, and output bills at ~5x the input rate,
-# so a low cap is the most direct cost lever.
-MAX_TOKENS = _int("MAX_TOKENS", 1000)
+# so a low cap is the most direct cost lever. 2000 fits Sonnet-5's longer
+# Vietnamese answers; mid-sentence overflows are stitched (see MAX_CONTINUATIONS).
+MAX_TOKENS = _int("MAX_TOKENS", 2000)
+
+# When a reply still hits max_tokens, the agent re-calls the API to CONTINUE the
+# same assistant turn (prefill continuation) and splices the text seamlessly —
+# this caps how many continuation calls one reply may use.
+MAX_CONTINUATIONS = _int("MAX_CONTINUATIONS", 2)
 
 # Safety cap on the reasoning loop: how many tool round-trips one user message
 # may trigger. Bounds the worst-case cost of a single message. Raised from 6 to
