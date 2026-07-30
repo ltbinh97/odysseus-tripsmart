@@ -666,6 +666,48 @@ check("history persisted after turn", len(mem2.load_session("u-agent")["messages
 check("usage logged", mem2.usage_today("u-agent")["in_tokens"] == 3600)
 check("tool results are JSON-serialisable", True)
 
+# --- Durable trip state + rolling summary (anti sliding-window amnesia) ---
+section("Trip state + session summary")
+_state = mem2.load_session("u-agent")["trip_state"]
+check("trip state extracted from successful tool args", _state.get("destination") == "Bangkok")
+check("trip state captures dates + pax + budget",
+      _state.get("depart_date") == "2026-08-28" and _state.get("pax") == 2
+      and _state.get("budget_vnd") == 8_000_000 and _state.get("origin") == "HCMC")
+
+# Next turn: the dynamic (uncached) system block must carry that state back in.
+out2 = agent.handle_message("u-agent", "Chốt phương án rẻ nhất nhé")
+_sys2 = mock.last_request.get("system")
+check("dynamic context sent as SECOND system block", isinstance(_sys2, list) and len(_sys2) == 2)
+check("static block still cached", _sys2[0].get("cache_control", {}).get("type") == "ephemeral")
+check("dynamic block NOT cached (would bust prompt cache)", "cache_control" not in _sys2[1])
+check("dynamic block carries established trip context",
+      "Established trip context" in _sys2[1]["text"] and "Bangkok" in _sys2[1]["text"])
+
+# Failed tool calls must NOT pollute the state.
+from tripsmart.agent import _update_trip_state  # noqa: E402
+_s = {"destination": "Bangkok"}
+_update_trip_state("search_flights", {"destination": "Mars"}, {"error": "unsupported_airport"}, _s)
+check("rejected tool call settles nothing", _s["destination"] == "Bangkok")
+
+# split_history hands back what was cut; merge_summary folds it into a digest.
+from tripsmart.memory import merge_summary, split_history  # noqa: E402
+_long = []
+for i in range(10):
+    _long.append({"role": "user", "content": f"câu hỏi số {i}"})
+    _long.append({"role": "assistant", "content": [{"type": "text", "text": f"trả lời số {i}"}]})
+_kept, _dropped = split_history(_long, keep_recent=6)
+check("split_history keeps the window", len(_kept) == 6)
+check("split_history returns the trimmed prefix", len(_dropped) == 14)
+_sum = merge_summary(None, _dropped)
+check("summary digests trimmed messages", "câu hỏi số 0" in _sum and "trả lời số 6" in _sum)
+_sum2 = merge_summary(_sum, [{"role": "user", "content": "mới nhất"}])
+check("summary is incremental", _sum2.endswith("User: mới nhất"))
+_huge = merge_summary(None, [{"role": "user", "content": f"dòng {i} " + "x" * 100} for i in range(40)])
+check("summary capped, keeps newest lines", len(_huge) <= 1500 and "dòng 39" in _huge and "dòng 0" not in _huge)
+# tool_result plumbing (no text blocks) is skipped, not dumped into the summary
+_sum3 = merge_summary(None, [{"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "{...}"}]}])
+check("tool plumbing skipped in summary", _sum3 is None)
+
 # Guard integration: flood until blocked.
 g4 = Guard(per_minute=2, per_day=100, max_chars=500, debounce_ms=0)
 agent2 = TripSmartAgent(client=_MockClient(two_turn_script), memory=Memory(":memory:"), guard=g4)

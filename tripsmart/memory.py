@@ -102,6 +102,11 @@ class Memory:
         )
         self.db.row_factory = sqlite3.Row
         self.db.executescript(_SCHEMA)
+        # Migration for DBs created before trip_state existed.
+        try:
+            self.db.execute("ALTER TABLE sessions ADD COLUMN trip_state TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already there
         self.db.commit()
 
     # ---------------- Preferences (durable) ----------------
@@ -158,31 +163,52 @@ class Memory:
     # ---------------- Sessions (expiring conversation history) ----------------
 
     def load_session(self, user_id: str) -> dict[str, Any]:
+        empty = {"messages": [], "summary": None, "trip_state": {}}
         row = self.db.execute(
-            "SELECT messages, summary, updated_at FROM sessions WHERE user_id = ?", (user_id,)
+            "SELECT messages, summary, trip_state, updated_at FROM sessions WHERE user_id = ?",
+            (user_id,),
         ).fetchone()
         if row is None:
-            return {"messages": [], "summary": None}
+            return dict(empty)
 
         age_hours = (_now_ms() - row["updated_at"]) / 3_600_000
         if age_hours > config.SESSION_TTL_HOURS:
             self.clear_session(user_id)  # expired — start fresh
-            return {"messages": [], "summary": None}
+            return dict(empty)
 
         try:
-            return {"messages": json.loads(row["messages"]), "summary": row["summary"]}
+            trip_state = json.loads(row["trip_state"]) if row["trip_state"] else {}
         except (json.JSONDecodeError, TypeError):
-            return {"messages": [], "summary": None}
+            trip_state = {}
+        try:
+            return {
+                "messages": json.loads(row["messages"]),
+                "summary": row["summary"],
+                "trip_state": trip_state if isinstance(trip_state, dict) else {},
+            }
+        except (json.JSONDecodeError, TypeError):
+            return dict(empty)
 
     def save_session(
-        self, user_id: str, messages: list[dict], summary: str | None = None
+        self,
+        user_id: str,
+        messages: list[dict],
+        summary: str | None = None,
+        trip_state: dict | None = None,
     ) -> None:
         self.db.execute(
-            """INSERT INTO sessions (user_id, messages, summary, updated_at) VALUES (?, ?, ?, ?)
+            """INSERT INTO sessions (user_id, messages, summary, trip_state, updated_at)
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(user_id) DO UPDATE SET
                  messages = excluded.messages, summary = excluded.summary,
-                 updated_at = excluded.updated_at""",
-            (user_id, json.dumps(messages, ensure_ascii=False), summary, _now_ms()),
+                 trip_state = excluded.trip_state, updated_at = excluded.updated_at""",
+            (
+                user_id,
+                json.dumps(messages, ensure_ascii=False),
+                summary,
+                json.dumps(trip_state, ensure_ascii=False) if trip_state else None,
+                _now_ms(),
+            ),
         )
         self.db.commit()
 
@@ -382,22 +408,74 @@ def _digest_old_tool_results(messages: list[dict], recent: int) -> list[dict]:
     return out
 
 
-def trim_history(messages: list[dict], keep_recent: int | None = None) -> list[dict]:
-    """Keep history bounded so cost doesn't grow without limit.
+def split_history(
+    messages: list[dict], keep_recent: int | None = None
+) -> tuple[list[dict], list[dict]]:
+    """Bound history AND hand back what was cut, so the caller can summarise it.
 
-    - Keeps the most recent `keep_recent` messages verbatim.
-    - Digests bulky tool_result payloads in older messages (tool results
-      dominate history size in a tool-heavy agent).
-    - Never starts the retained window on a tool_result, because the API rejects
-      a tool_use block whose matching tool_result is missing.
+    Returns (kept, dropped):
+    - `kept` is the most recent `keep_recent` messages (bulky old tool_results
+      digested), never starting on a tool_result (the API rejects a tool_use
+      whose matching tool_result is missing).
+    - `dropped` is everything cut from the front — previously discarded
+      silently, which made the agent forget anything older than ~8 messages.
     """
     keep = config.KEEP_RECENT_MESSAGES if keep_recent is None else keep_recent
 
     if len(messages) <= keep:
-        return _digest_old_tool_results(messages, keep)
+        return _digest_old_tool_results(messages, keep), []
 
     cut = len(messages) - keep
     while cut < len(messages) and _has_block(messages[cut], "tool_result"):
         cut += 1
 
-    return _digest_old_tool_results(messages[cut:], keep)
+    return _digest_old_tool_results(messages[cut:], keep), messages[:cut]
+
+
+def trim_history(messages: list[dict], keep_recent: int | None = None) -> list[dict]:
+    """Back-compat wrapper: bounded history only (see split_history)."""
+    return split_history(messages, keep_recent)[0]
+
+
+# ---------------- Rolling session summary (context beyond the window) ----------------
+
+SUMMARY_MAX_CHARS = 1500
+
+
+def _msg_gist(msg: dict) -> str | None:
+    """One compact line for a message, or None for pure tool plumbing."""
+    content = msg.get("content")
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        text = " ".join(
+            b.get("text", "")
+            for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    else:
+        return None
+    text = " ".join(str(text).split())
+    if not text:
+        return None
+    if len(text) > 160:
+        text = text[:157] + "…"
+    return ("User: " if msg.get("role") == "user" else "Assistant: ") + text
+
+
+def merge_summary(prev: str | None, dropped: list[dict]) -> str | None:
+    """Fold messages trimmed out of the window into a rolling plain-text digest.
+
+    Deterministic (no extra model call, no latency): keeps one gist line per
+    human-visible message, newest last, capped at SUMMARY_MAX_CHARS by dropping
+    the oldest lines. Tool-result payloads carry no text blocks and are skipped —
+    their durable facts live in the trip state instead.
+    """
+    lines = [ln for ln in (prev or "").split("\n") if ln.strip()]
+    for m in dropped:
+        gist = _msg_gist(m)
+        if gist:
+            lines.append(gist)
+    while lines and len("\n".join(lines)) > SUMMARY_MAX_CHARS:
+        lines.pop(0)
+    return "\n".join(lines) or None

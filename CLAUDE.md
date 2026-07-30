@@ -121,6 +121,11 @@ Hai kiểu bịa từng gặp: (P) model viết prose thêm thắt; (S) model t�
 ## Agent loop (`tripsmart/agent.py`)
 
 Vòng lặp tool-calling: guard → nạp memory + `ctx["observed"]` → gọi Claude (system prompt cached + 11 tool + lịch sử) → model gọi tool → code chạy → lặp **tối đa `MAX_TOOL_TURNS=8`**.
+
+**Chống "mất trí nhớ" do cửa sổ trượt** (lịch sử chỉ giữ `KEEP_RECENT_MESSAGES=8` *message* ≈ 1-2 lượt tool-heavy):
+- **Trip state bền** (`sessions.trip_state`): điểm đến/ngày/số người/ngân sách trích **từ args của tool call thành công** (`_update_trip_state` — 0 API call, không bịa được; lỗi validation như `date_in_past` thì không ghi). Sống theo session (TTL 48h).
+- **Summary cuốn chiếu** (`sessions.summary`): message bị trim được digest deterministic (`merge_summary`, cap 1500 ký tự, giữ dòng mới nhất) thay vì vứt bỏ.
+- Cả hai nạp vào **block system THỨ HAI không cache** (`_build_system`) — block 1 (prompt tĩnh) giữ nguyên prompt cache, block 2 đổi mỗi lượt không làm vỡ cache.
 - **Retry API** (429/5xx/timeout, backoff) — `_create_with_retry`.
 - **`pause_turn`**: server tool (web_search) chạy dài → tự `continue` để resume.
 - **Thrash-guard**: model lặp **đúng cùng tool call** (`_tool_signature`) → dừng sớm, trả `blocked="no_progress"` (tránh đốt hết lượt).

@@ -22,7 +22,7 @@ from typing import Any
 
 from . import config
 from .guard import Guard
-from .memory import Memory, trim_history
+from .memory import Memory, merge_summary, split_history
 from .tools import TOOL_IMPLS
 
 # ---- Load static config once (this is what prompt caching makes cheap) ----
@@ -69,15 +69,43 @@ class TripSmartAgent:
 
     # ---- Request construction ----
 
-    def _build_system(self, user_id: str) -> list[dict]:
-        """System blocks, marked cacheable so repeat turns bill at ~0.1x input."""
+    def _build_system(
+        self,
+        user_id: str,
+        trip_state: dict | None = None,
+        summary: str | None = None,
+    ) -> list[dict]:
+        """System blocks. Block 1 (the big static prompt) carries cache_control so
+        repeat turns bill at ~0.1x input. Per-turn context — the durable trip
+        state and the rolling summary of trimmed history — goes in a SECOND,
+        uncached block: it changes every turn, and putting it inside the cached
+        block would bust the prompt cache on each message."""
         body = PROMPT_BODY.replace("{{TODAY}}", date.today().isoformat()).replace(
             "{{USER_PREFERENCES}}", self.memory.render_preferences(user_id)
         )
         block: dict[str, Any] = {"type": "text", "text": body}
         if config.ENABLE_PROMPT_CACHE:
             block["cache_control"] = {"type": "ephemeral"}
-        return [block]
+        blocks = [block]
+
+        dyn: list[str] = []
+        state_text = _render_trip_state(trip_state or {})
+        if state_text:
+            dyn.append(
+                "## Established trip context (auto-tracked from this conversation)\n"
+                f"{state_text}\n"
+                "These facts are already settled — use them and do NOT re-ask, "
+                "unless the user changes them."
+            )
+        if summary:
+            dyn.append(
+                "## Earlier in this conversation (condensed)\n"
+                f"{summary}\n"
+                "(Older messages were trimmed for cost; this digest is what happened.)"
+            )
+        if dyn:
+            blocks.append({"type": "text", "text": "\n\n".join(dyn)})
+        return blocks
 
     def _build_tools(self) -> list[dict]:
         """Tool schemas; cache_control on the last covers the whole array."""
@@ -135,6 +163,10 @@ class TripSmartAgent:
 
         # ---- 2. Load memory ----
         session = self.memory.load_session(user_id)
+        # Durable per-session trip facts (destination, dates, pax, budget) —
+        # extracted from successful tool calls, so they survive history trimming.
+        trip_state: dict = dict(session.get("trip_state") or {})
+        summary: str | None = session.get("summary")
         # `observed` is the ground-truth ledger of what external APIs actually
         # returned this turn; generate_summary_card checks its numbers against it
         # so the headline figures can't be fabricated.
@@ -162,7 +194,7 @@ class TripSmartAgent:
                 response = self._create_with_retry(
                     model=self.model,
                     max_tokens=config.MAX_TOKENS,
-                    system=self._build_system(user_id),
+                    system=self._build_system(user_id, trip_state, summary),
                     tools=self._build_tools(),
                     messages=messages,
                 )
@@ -204,7 +236,7 @@ class TripSmartAgent:
                         "Bạn nhắn lại ngắn gọn hơn giúp mình nhé!"
                     )
                     blocked = "empty_reply" if stop_reason != "max_tokens" else "truncated"
-                    self._persist(user_id, messages, session["summary"])
+                    self._persist(user_id, messages, summary, trip_state)
                     self.memory.log_usage(user_id, total_in, total_out)
                     return AgentResult(reply=reply, card=card, itinerary=itinerary, blocked=blocked)
 
@@ -212,7 +244,7 @@ class TripSmartAgent:
                 if config.ENABLE_REFLECTION and tools_used:
                     reply = self._reflect(user_id, messages, reply, total_in, total_out) or reply
 
-                self._persist(user_id, messages, session["summary"])
+                self._persist(user_id, messages, summary, trip_state)
                 self.memory.log_usage(user_id, total_in, total_out)
                 return AgentResult(reply=reply, card=card, itinerary=itinerary)
 
@@ -220,7 +252,7 @@ class TripSmartAgent:
             sig = _tool_signature(content)
             if sig and sig == prev_sig:
                 messages.pop()  # drop the dangling repeated assistant turn (tool_use, no result)
-                self._persist(user_id, messages, session["summary"])
+                self._persist(user_id, messages, summary, trip_state)
                 self.memory.log_usage(user_id, total_in, total_out)
                 return AgentResult(
                     reply=(
@@ -248,6 +280,7 @@ class TripSmartAgent:
                 name = block.get("name")
                 result = self._run_tool(name, block.get("input", {}), ctx)
                 _observe(name, result, ctx["observed"])
+                _update_trip_state(name, block.get("input") or {}, result, trip_state)
                 if block.get("name") == "generate_summary_card" and result.get("card"):
                     card = result["card"]
                 if block.get("name") == "generate_itinerary" and result.get("itinerary"):
@@ -262,7 +295,7 @@ class TripSmartAgent:
             messages.append({"role": "user", "content": results})
 
         # Loop cap hit — persist what we have and fail gracefully.
-        self._persist(user_id, messages, session["summary"])
+        self._persist(user_id, messages, summary, trip_state)
         self.memory.log_usage(user_id, total_in, total_out)
         return AgentResult(
             reply=(
@@ -274,8 +307,17 @@ class TripSmartAgent:
             blocked="max_tool_turns",
         )
 
-    def _persist(self, user_id: str, messages: list[dict], summary: str | None) -> None:
-        self.memory.save_session(user_id, trim_history(messages), summary)
+    def _persist(
+        self,
+        user_id: str,
+        messages: list[dict],
+        summary: str | None,
+        trip_state: dict | None = None,
+    ) -> None:
+        """Trim history AND fold what was cut into the rolling summary, so no
+        conversation context is silently lost (it previously was)."""
+        kept, dropped = split_history(messages)
+        self.memory.save_session(user_id, kept, merge_summary(summary, dropped), trip_state)
 
     def _reflect(
         self, user_id: str, messages: list[dict], reply: str, total_in: int, total_out: int
@@ -366,6 +408,66 @@ _TOOL_LABELS = {
     "save_user_preference": "💾 Đang ghi nhớ sở thích…",
     "forget_user_preference": "🗑️ Đang cập nhật ghi nhớ…",
 }
+
+
+# Which tool args feed the durable trip state. Extracted from SUCCESSFUL tool
+# calls (the model already normalised them there), so tracking costs zero extra
+# model calls and can't hallucinate: it only records what searches actually ran.
+_TRIP_ARG_MAP: dict[str, tuple[tuple[str, str], ...]] = {
+    "search_flights": (
+        ("origin_city", "origin"), ("destination", "destination"),
+        ("depart_date", "depart_date"), ("return_date", "return_date"),
+        ("traveler_count", "pax"), ("budget_vnd", "budget_vnd"),
+    ),
+    "search_hotels": (
+        ("destination", "destination"), ("checkin_date", "depart_date"),
+        ("checkout_date", "return_date"), ("guests", "pax"),
+        ("budget_vnd", "budget_vnd"),
+    ),
+    "generate_itinerary": (("destination", "destination"), ("days", "days")),
+}
+
+_TRIP_LABELS = {
+    "destination": "Destination", "origin": "Origin",
+    "depart_date": "Departure", "return_date": "Return",
+    "pax": "Travellers", "budget_vnd": "Budget (VND)", "days": "Itinerary days",
+}
+
+
+# Errors that mean the ARGUMENTS were invalid — those settle nothing. Transient
+# failures (prices_unavailable, itinerary_unavailable…) keep valid args: the trip
+# facts were established even if the live lookup happened to fail.
+_ARG_REJECTING_ERRORS = {
+    "invalid_date", "date_in_past", "date_too_far", "dates_reversed",
+    "stay_too_long", "invalid_count", "too_many_travelers",
+    "unsupported_airport", "same_route", "destination_conflict",
+    "ambiguous_city", "no_destination",
+}
+
+
+def _update_trip_state(name: str, args: dict, result: Any, state: dict) -> None:
+    """Fold a tool call's arguments into the durable trip state (unless the tool
+    rejected those arguments as invalid)."""
+    if not isinstance(result, dict) or result.get("error") in _ARG_REJECTING_ERRORS:
+        return
+    for src, dst in _TRIP_ARG_MAP.get(name, ()):
+        val = args.get(src)
+        if val not in (None, ""):
+            state[dst] = val
+
+
+def _render_trip_state(state: dict) -> str:
+    lines = []
+    for key in ("destination", "origin", "depart_date", "return_date", "pax", "budget_vnd", "days"):
+        val = state.get(key)
+        if val not in (None, ""):
+            if key == "budget_vnd":
+                try:
+                    val = f"{int(val):,}"
+                except (TypeError, ValueError):
+                    pass
+            lines.append(f"- {_TRIP_LABELS[key]}: {val}")
+    return "\n".join(lines)
 
 
 def _observe(name: str, result: Any, observed: dict) -> None:
